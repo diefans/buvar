@@ -3,10 +3,13 @@ import os
 import attr
 import structlog
 
-CNF_KEY = 'boovar_config'
+CNF_KEY = 'buvar_config'
 
 
 logger = structlog.get_logger()
+
+
+missing = object()
 
 
 @attr.s(auto_attribs=True)
@@ -19,11 +22,11 @@ class Config:
     ...     bar: float
     >>>
     >>>
-    >>> source = ConfigSource({'foo': {'bar': 1.23}})
-    >>> config = Config(source)
+    >>> source = {'foo': {'bar': 1.23}}
+    >>> config = Config.from_sources(source)
     >>> config.foo = FooConfig
-    >>> config
-    {'foo': FooConfig(bar=1.23)}
+    >>> config.foo
+    FooConfig(bar=1.23)
     """
 
     __slots__ = ('__source', '__dict__', '__env_prefix')
@@ -63,7 +66,7 @@ class ConfigValue:
     help: str = None
 
 
-def var(default=None, converter=None, name=None, validator=None, help=None):    # noqa: W0622
+def var(default=missing, converter=None, name=None, validator=None, help=None):    # noqa: W0622
     return attr.ib(
         default=default,
         metadata={CNF_KEY: ConfigValue(name, help)},
@@ -85,7 +88,7 @@ def _env_to_bool(val):
     return False
 
 
-def bool_var(default=None, name=None, help=None):   # noqa: W0622
+def bool_var(default=missing, name=None, help=None):   # noqa: W0622
     return var(default=default, name=name, converter=_env_to_bool, help=help)
 
 

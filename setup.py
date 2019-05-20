@@ -6,14 +6,14 @@ with open("README.rst", "r") as fh:
 
 
 setuptools.setup(
-    name="boovar",
-    version="0.0.1",
+    name="buvar",
+    version="0.1.0",
     author="Oliver Berger",
     author_email="diefans@gmail.com",
     description="General purpose config loader",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    url="https://gitlab.com/diefans/boovar",
+    url="https://gitlab.com/diefans/buvar",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

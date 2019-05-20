@@ -1,12 +1,12 @@
 def test_config_source_schematize(mocker):
-    import boovar
+    import buvar
     import attr
 
     @attr.s(auto_attribs=True)
     class FooConfig:
         bar: str = 'default'
         foobar: float = 9.87
-        baz: bool = boovar.bool_var(default=False)
+        baz: bool = buvar.bool_var(default=False)
 
     @attr.s(auto_attribs=True)
     class BarConfig:
@@ -16,7 +16,7 @@ def test_config_source_schematize(mocker):
     @attr.s(auto_attribs=True, kw_only=True)
     class BimConfig:
         bar: BarConfig
-        bam: bool = boovar.bool_var()
+        bam: bool = buvar.bool_var()
         bum: int = 123
 
     sources = [
@@ -53,7 +53,7 @@ def test_config_source_schematize(mocker):
         'PREFIX_BAR_FOO_BAZ': 'false'
     })
 
-    cfg = boovar.Config.from_sources(*sources, env_prefix='PREFIX')
+    cfg = buvar.Config.from_sources(*sources, env_prefix='PREFIX')
     cfg.bar = BarConfig
     cfg.foo = FooConfig
     cfg.bim = BimConfig

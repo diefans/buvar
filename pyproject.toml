@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "buvar"
+version = "0.2.0"
+description = "General purpose config loader"
+authors = ["Oliver Berger <diefans@gmail.com>"]
+license = "Apache-2.0"
+include = ['COPYRIGHT', 'tests/*']
+
+[tool.poetry.dependencies]
+python = "^3.6"
+attrs = "*"
+pytoml = "*"
+structlog = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+pytest-cache = "*"
+pytest-watch = "*"
+pytest-mock = "*"
+mock = "*"
+async_generator = "*"
+coverage = "*"
+pylava = "*"
+pylava-pylint = "*"
+pycodestyle = "*"
+pydocstyle = "*"
+radon = "*"
+isort = "*"
+ipython = "*"
+pdbpp = "*"
+colorlog = "*"
+tox = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

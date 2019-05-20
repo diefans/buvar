@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_config_source_schematize(mocker):
     import buvar
     import attr
@@ -65,3 +68,21 @@ def test_config_source_schematize(mocker):
     }
 
     assert cfg.foo.baz
+
+
+def test_config_missing():
+    import attr
+    import buvar
+
+    source = {
+        'foo': {
+        }
+    }
+
+    @attr.s(auto_attribs=True)
+    class FooConfig:
+        bar: str = buvar.var()
+
+    cfg = buvar.Config.from_sources(source)
+    with pytest.raises(ValueError):
+        cfg.foo = FooConfig

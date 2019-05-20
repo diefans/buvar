@@ -127,8 +127,10 @@ def schematize(source, attrs, env_prefix=''):
                                      env_prefix=env_name)
             else:
                 a_value = os.environ.get(env_name, source.get(a_name, ...))
-                # we skip this value if source is lacking
                 if a_value is ...:
+                    if attrib.default is missing:
+                        raise ValueError('Attribute is missing', a_name, env_name)
+                    # we skip this value if source is lacking but we have a default
                     continue
                 if attrib.converter is None:
                     # cast type

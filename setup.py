@@ -7,7 +7,7 @@ with open("README.rst", "r") as fh:
 
 setuptools.setup(
     name="buvar",
-    version="0.2.0",
+    version="0.3.0",
     author="Oliver Berger",
     author_email="diefans@gmail.com",
     description="General purpose config loader",

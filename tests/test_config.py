@@ -2,14 +2,14 @@ import pytest
 
 
 def test_config_source_schematize(mocker):
-    import buvar
+    from buvar import config
     import attr
 
     @attr.s(auto_attribs=True)
     class FooConfig:
         bar: str = 'default'
         foobar: float = 9.87
-        baz: bool = buvar.bool_var(default=False)
+        baz: bool = config.bool_var(default=False)
 
     @attr.s(auto_attribs=True)
     class BarConfig:
@@ -19,7 +19,7 @@ def test_config_source_schematize(mocker):
     @attr.s(auto_attribs=True, kw_only=True)
     class BimConfig:
         bar: BarConfig
-        bam: bool = buvar.bool_var()
+        bam: bool = config.bool_var()
         bum: int = 123
 
     sources = [
@@ -56,7 +56,7 @@ def test_config_source_schematize(mocker):
         'PREFIX_BAR_FOO_BAZ': 'false'
     })
 
-    cfg = buvar.Config.from_sources(*sources, env_prefix='PREFIX')
+    cfg = config.Config.from_sources(*sources, env_prefix='PREFIX')
     cfg.bar = BarConfig
     cfg.foo = FooConfig
     cfg.bim = BimConfig
@@ -72,7 +72,7 @@ def test_config_source_schematize(mocker):
 
 def test_config_missing():
     import attr
-    import buvar
+    from buvar import config
 
     source = {
         'foo': {
@@ -81,8 +81,54 @@ def test_config_missing():
 
     @attr.s(auto_attribs=True)
     class FooConfig:
-        bar: str = buvar.var()
+        bar: str = config.var()
 
-    cfg = buvar.Config.from_sources(source)
+    cfg = config.Config.from_sources(source)
     with pytest.raises(ValueError):
         cfg.foo = FooConfig
+
+
+def test_subclass():
+    import attr
+    from buvar import config
+
+    source = {
+        'bar': 'foobar',
+    }
+
+    @attr.s(auto_attribs=True)
+    class FooConfig(config.Config):
+        bar: str = config.var()
+
+    cfg = FooConfig.from_sources(source)
+    assert cfg == FooConfig(bar='foobar')
+
+
+@pytest.mark.xfail
+def test_traverse():
+    import attr
+    from buvar import config
+
+    @attr.s(auto_attribs=True)
+    class FooConfig:
+        bar: str = 'default'
+        foobar: float = 9.87
+        baz: bool = config.bool_var(default=False)
+
+    @attr.s(auto_attribs=True)
+    class BarConfig:
+        bim: float
+        foo: FooConfig = FooConfig()
+
+    env_vars = list(config.traverse_attrs(BarConfig))
+
+    assert [path for path, _ in env_vars] == [
+        ('bim',),
+        ('foo', 'bar'),
+        ('foo', 'foobar'),
+        ('foo', 'baz')
+    ]
+
+    help = config.generate_help(BarConfig, env_prefix='PREFIX')
+
+    assert help == """"""

@@ -2,14 +2,14 @@ from buvar import context
 
 
 async def bar():
-    return context.get('bar')
+    context.get('bar')
 
 
 async def baz():
-    return 'baz'
+    pass
 
 
-async def plug_me_in(load):
+async def plugin_bar(load):
     context.add('bar', 'bar')
     yield bar()
     yield baz()

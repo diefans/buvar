@@ -279,6 +279,14 @@ python-versions = ">=3.4"
 version = "7.0.0"
 
 [[package]]
+category = "main"
+description = "Fast, correct Python JSON library"
+name = "orjson"
+optional = false
+python-versions = "*"
+version = "2.0.6"
+
+[[package]]
 category = "dev"
 description = "A Python Parser"
 name = "parso"
@@ -518,6 +526,17 @@ pytest = ">=2.7"
 
 [[package]]
 category = "dev"
+description = "Pytest plugin to randomly order tests and control random.seed."
+name = "pytest-randomly"
+optional = false
+python-versions = ">=3.5"
+version = "3.0.0"
+
+[package.dependencies]
+pytest = "*"
+
+[[package]]
+category = "dev"
 description = "Local continuous test runner with pytest and watchdog."
 name = "pytest-watch"
 optional = false
@@ -680,7 +699,7 @@ python-versions = "*"
 version = "1.11.1"
 
 [metadata]
-content-hash = "5f0cc020de15752d79d5208e85a863b6c23bb35c3a1aa6d24ac7385d4127bd53"
+content-hash = "7f516b4544e1165f71577d68871ed3d8364843ce26e61b7e3b0a8d44c34336b9"
 python-versions = "^3.6"
 
 [metadata.hashes]
@@ -713,6 +732,7 @@ mando = ["4ce09faec7e5192ffc3c57830e26acba0fd6cd11e1ee81af0d4df0657463bd1c", "79
 mccabe = ["ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42", "dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f"]
 mock = ["83657d894c90d5681d62155c82bda9c1187827525880eda8ff5df4ec813437c3", "d157e52d4e5b938c550f39eb2fd15610db062441a9c2747d3dbfa9298211d0f8"]
 more-itertools = ["2112d2ca570bb7c3e53ea1a35cd5df42bb0fd10c45f0fb97178679c3c03d64c7", "c3e4748ba1aad8dba30a4886b0b1a2004f9a863837b8654e7059eebf727afa5a"]
+orjson = ["0a0a67ac3654739e3bc43911af6c80a6277545dba553909ad5f91311ed06616a", "2dc0c8f5946e9a278b1cbb62404ee9a0167afd51e46566694070188485375823", "33c89b3884b57b3942eacca801e029dbf4086a9ebde55627abf9831bed73d58c", "3cc1e45fbd0394344e03a6e89f7194f56a57ff168a785efc55e56c3dca925e2c", "487cf61b73195b0021aba09f4417cf8a6bcf0a4e42d2add26b75fe2773865bdd", "b7def20627d33aafaa54588d54d3bf58d4c5a91c4e935e3bc7c2128a22bfd2d8", "c99daef8b120777ea41d214ef039dcfa08883b31da3d5d74f31371db180efe02", "ca28f614f28a4a975caee3423596ff55945beb195768d0a67d45197c13117a58", "ebdc9200ed50b9d6461a9ac3bfeebd15f1ae54b933edaaa052eaccebdec0808b"]
 parso = ["17cc2d7a945eb42c3569d4564cdf49bde221bc2b552af3eca9c1aad517dcdd33", "2e9574cb12e7112a87253e14e2c380ce312060269d04bd018478a3c92ea9a376"]
 pathtools = ["7c35c5421a39bb82e58018febd90e3b6e5db34c5443aaaf742b3f33d4655f1c0"]
 pdbpp = ["ee7eab02ecf32d92bd66b45eedb9bda152fa13f7be0dceb7050413a52cbbc4dd"]
@@ -735,6 +755,7 @@ pytest-asyncio = ["9fac5100fd716cbecf6ef89233e8590a4ad61d729d1732e0a96b84182df1d
 pytest-cache = ["be7468edd4d3d83f1e844959fd6e3fd28e77a481440a7118d430130ea31b07a9"]
 pytest-cov = ["2b097cde81a302e1047331b48cadacf23577e431b61e9c6f49a1170bbe3d3da6", "e00ea4fdde970725482f1f35630d12f074e121a23801aabf2ae154ec6bdd343a"]
 pytest-mock = ["43ce4e9dd5074993e7c021bb1c22cbb5363e612a2b5a76bc6d956775b10758b7", "5bf5771b1db93beac965a7347dc81c675ec4090cb841e49d9d34637a25c30568"]
+pytest-randomly = ["07b642e177c5921386fa36ee3995a4bda918a1d20b3806a4f397a02788f88331", "f5ac7c6e30a32c1aa5ae911e00b5ffd6a0df38eb818f6b539e1e7b89995724ed"]
 pytest-watch = ["06136f03d5b361718b8d0d234042f7b2f203910d8568f63df2f866b547b3d4b9"]
 pytoml = ["ca2d0cb127c938b8b76a9a0d0f855cf930c1d50cc3a0af6d3595b566519a1013"]
 pyyaml = ["1adecc22f88d38052fb787d959f003811ca858b799590a5eaa70e63dca50308c", "436bc774ecf7c103814098159fbb84c2715d25980175292c648f2da143909f95", "460a5a4248763f6f37ea225d19d5c205677d8d525f6a83357ca622ed541830c2", "5a22a9c84653debfbf198d02fe592c176ea548cccce47553f35f466e15cf2fd4", "7a5d3f26b89d688db27822343dfa25c599627bc92093e788956372285c6298ad", "9372b04a02080752d9e6f990179a4ab840227c6e2ce15b95e1278456664cf2ba", "a5dcbebee834eaddf3fa7366316b880ff4062e4bcc9787b78c7fbb4a26ff2dd1", "aee5bab92a176e7cd034e57f46e9df9a9862a71f8f37cad167c6fc74c65f5b4e", "c51f642898c0bacd335fc119da60baae0824f2cde95b0330b56c0553439f0673", "c68ea4d3ba1705da1e0d85da6684ac657912679a649e8868bd850d2c299cce13", "e23d0cc5299223dcc37885dae624f382297717e459ea24053709675a976a3e19"]

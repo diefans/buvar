@@ -11,6 +11,7 @@ python = "^3.6"
 attrs = "*"
 pytoml = "*"
 structlog = "*"
+orjson = "^2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
@@ -32,6 +33,7 @@ ipython = "*"
 pdbpp = "*"
 colorlog = "*"
 tox = "*"
+pytest-randomly = "^3.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

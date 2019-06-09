@@ -12,6 +12,7 @@ attrs = "*"
 pytoml = "*"
 structlog = "*"
 orjson = "^2.0"
+tomlkit = "^0.5.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"

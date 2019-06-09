@@ -146,7 +146,6 @@ def test_generate_toml_help():
     ]
 
     help = config.generate_toml_help(BarConfig, env_prefix='PREFIX')
-
     assert help.as_string() == """# BarConfig.
 # 
 # bla bla
@@ -175,4 +174,4 @@ float_val = 9.87
 # list
 list_val = []
 
-"""
+""" # noqa: W291

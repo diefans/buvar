@@ -37,38 +37,16 @@ class Stages:
         self.components.add(tasks, BUVAR_NAMESPACE, name='tasks')
 
         evt_plugins_loaded = asyncio.Event(loop=self.loop)
-        self.components.add(evt_plugins_loaded, BUVAR_NAMESPACE, name='plugins_loaded')
+        self.components.add(
+            evt_plugins_loaded, BUVAR_NAMESPACE, name='plugins_loaded')
 
-        # prepare the main task
-        async def run_main_tasks(tasks):
-            # we wait for plugin loading completed
-            try:
-                await evt_plugins_loaded.wait()
-            except asyncio.CancelledError:
-                # we were in plugin loading stage
-                # so we just return and finish
-                return
-
-            # run all tasks together
-            current_tasks = tasks.values()
-
-            # XXX gather is not working for async generators
-            result_list = await asyncio.gather(
-                *expand_async_generator(
-                    itertools.chain(*current_tasks)
-                ),
-                return_exceptions=True,
-                loop=self.loop
-            )
-            # flatten tasks
-            teardown_tasks = list(flatten_tasks(result_list))
-            return teardown_tasks
-
+        # schedule the main task, which waits until all plugin are loaded
         fut_main_task = asyncio.ensure_future(
-            run_main_tasks(tasks),
+            self._run_main_tasks(evt_plugins_loaded, tasks),
             loop=self.loop
         )
-        self.components.add(fut_main_task, BUVAR_NAMESPACE, name='main_task')
+        self.components.add(
+            fut_main_task, BUVAR_NAMESPACE, name='main_task')
 
         # load root plugin
         try:
@@ -84,25 +62,58 @@ class Stages:
             self.loop.run_until_complete(fut_main_task)
             raise
         else:
+            yield fut_main_task
             evt_plugins_loaded.set()
-            return fut_main_task
+
+    async def _run_main_tasks(self, evt_plugins_loaded, tasks):
+        # we wait for plugin loading completed
+        try:
+            await evt_plugins_loaded.wait()
+        except asyncio.CancelledError:
+            # we were in plugin loading stage
+            # so we just return and finish
+            return
+
+        # run all tasks together
+        current_tasks = tasks.values()
+
+        # XXX gather is not working for async generators
+        result_list = await asyncio.gather(
+            *expand_async_generator(
+                itertools.chain(*current_tasks)
+            ),
+            return_exceptions=True,
+            loop=self.loop
+        )
+        # flatten tasks
+        teardown_tasks = list(flatten_tasks(result_list))
+        return teardown_tasks
 
     def generate(self):
+        evt_main_task_finished = asyncio.Event()
+        self.components.add(
+            evt_main_task_finished, BUVAR_NAMESPACE, name='main_task_finished')
+        evt_teardown_finished = asyncio.Event()
+        self.components.add(
+            evt_teardown_finished, BUVAR_NAMESPACE, name='teardown_finished')
+
         # stage 1: bootstrap plugins
-        fut_main_task = self._bootstrap()
+        bootstrap = self._bootstrap()
+        fut_main_task = next(bootstrap)
+        # main task still waiting
         yield fut_main_task
 
         # stage 2: run main task
-        evt_main_task_finished = asyncio.Event()
-        self.components.add(evt_main_task_finished, BUVAR_NAMESPACE, name='main_task_finished')
 
-        # run all collected tasks
+        # finish bootstrap and start main task
+        next(bootstrap, None)
         teardown_tasks = self.loop.run_until_complete(fut_main_task)
         evt_main_task_finished.set()
         yield teardown_tasks
 
         # stage 3: teardown
         self.loop.run_until_complete(asyncio.gather(*teardown_tasks, loop=self.loop))
+        evt_teardown_finished.set()
         yield None
 
 
@@ -117,12 +128,35 @@ def run(plugin, *, components=None, loop=None):
     2. run all registered tasks together until complete
 
     3. run returned tasks for teardown
+
+
+    >>> components = Components()
+    >>> loop = asyncio.get_event_loop()
+    >>> async def plugin(load):
+    ...     async def some_task():
+    ...         async def teardown():
+    ...             pass
+    ...         yield teardown()
+    ...     yield some_task()
+
+
+    >>> stages = Stages(plugin, components=components, loop=loop).generate()
+    >>> main_task = next(stages)
+    >>> teardown_tasks = next(stages)
+    >>> next(stages)
+    >>> # just finish generator
+    >>> next(stages, None)
+
+
+    >>> stages = Stages(plugin, components=components, loop=loop).generate()
+    >>> for stage in stages:
+    ...     pass
     """
     stages = Stages(plugin, components=components, loop=loop).generate()
+    list(stages)
 
-    next(stages)
-    next(stages)
-    next(stages)
+    # for stage in stages:
+    #     pass
 
 
 async def load(plugin, tasks):

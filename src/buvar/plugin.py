@@ -76,8 +76,6 @@ class Stages:
 
         # run all tasks together
         current_tasks = tasks.values()
-
-        # XXX gather is not working for async generators
         result_list = await asyncio.gather(
             *expand_async_generator(
                 itertools.chain(*current_tasks)

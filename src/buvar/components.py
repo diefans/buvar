@@ -14,18 +14,44 @@ import collections
 import inspect
 
 
+missing = object()
+
+
+class ComponentLookupError(Exception):
+    pass
+
+
 class Components:
 
     """A component registry holds certain items identified by a
     discriminator."""
 
-    __slots__ = ('_index',)
+    __slots__ = ('index',)
 
-    def __init__(self):
-        self._index = collections.defaultdict(dict)
+    def __init__(self, index=None):
+        self.index = None
+        self.push(index)
+
+    def clone(self):
+        return self.__class__(self.index)
+
+    def push(self, index=None):
+        if index is None:
+            index = {}
+        self.index = (
+            collections.ChainMap(index)
+            if self.index is None
+            else self.index.new_child(index)
+        )
+        return index
+
+    def pop(self):
+        index = self.index.maps[0]
+        self.index = self.index.parents()
+        return index
 
     def __repr__(self):
-        return self._index.__repr__()
+        return self.index.__repr__()
 
     def add(self, item, namespace=None, *, name=None):
         """Register `item` and optionally name it."""
@@ -34,10 +60,23 @@ class Components:
         if namespace is None:
             namespace = type(item)
 
-        self._index[namespace][name] = item
+        if namespace in self.index:
+            self.index[namespace][name] = item
+        else:
+            self.index[namespace] = {name: item}
 
-    def get(self, namespace, *, name=None, default=None):
-        item = self.find(namespace).get(name, default)
+    def get(self, namespace, *, name=None, default=missing):
+        try:
+            item = self.find(namespace)[name]
+        except KeyError:
+            if default is missing:
+                raise ComponentLookupError(
+                    'Component not found',
+                    namespace,
+                    name,
+                    default
+                )
+            return default
         return item
 
     def find(self, namespace):
@@ -52,7 +91,7 @@ class Components:
         """
         if inspect.isclass(namespace):
             items = None
-            for key in self._index.keys():
+            for key in self.index.keys():
                 if inspect.isclass(key) \
                         and issubclass(key, namespace):
                     if items is None \
@@ -62,4 +101,4 @@ class Components:
         else:
             items = namespace
 
-        return self._index[items]
+        return self.index[items]

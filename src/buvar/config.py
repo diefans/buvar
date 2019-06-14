@@ -152,7 +152,7 @@ def schematize(source, attrs, env_prefix=''):
 def generate_env_help(attrs, env_prefix=''):
     """Generate a list of all environment options."""
 
-    help = '\n'.join(
+    help = '\n'.join(       # noqa: W0622
         '_'.join(
             (env_prefix, ) + path if env_prefix else path
         ).upper() for path, attrib in traverse_attrs(attrs)
@@ -167,8 +167,7 @@ def generate_toml_help(attrs, env_prefix='', parent=None):
         doclines = trim(attrs.__doc__).split('\n')
         for line in doclines:
             parent.add(tomlkit.comment(line))
-        else:
-            parent.add(tomlkit.nl())
+        parent.add(tomlkit.nl())
 
     for attrib in attrs.__attrs_attrs__:
         meta = attrib.metadata.get(CNF_KEY)
@@ -201,7 +200,6 @@ def traverse_attrs(attrs, with_nodes=False):
                 yield (attrib.name,), attrib
             for path, sub_attrib in traverse_attrs(attrib.type):
                 yield (attrib.name,) + path, sub_attrib
-            pass
         else:
             yield (attrib.name,), attrib
 

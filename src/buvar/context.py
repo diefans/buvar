@@ -1,10 +1,12 @@
 """Provide a component registry as task context."""
 import asyncio
+import functools
 import sys
+
+from . import components
 
 __all__ = ('get', 'add', 'find')
 
-from .components import Components
 
 PY37 = sys.version_info >= (3, 7)
 
@@ -22,13 +24,19 @@ else:
 
 def default_components_context(parent_context=None):
     if parent_context is None:
-        return Components()
+        return components.Components()
     return parent_context
 
 
-def task_factory(loop, coro, default=None):
+def task_factory(loop, coro, default=None, parent_factory=None):
     context = current_context(loop=loop)
-    task = asyncio.tasks.Task(coro, loop=loop)
+
+    factory = (
+        parent_factory if parent_factory is not None
+        else asyncio.tasks.Task
+    )
+
+    task = factory(coro, loop=loop)
 
     if default is None:
         default = default_components_context
@@ -56,3 +64,16 @@ def get(*args, **kwargs):
 def find(*args, **kwargs):
     context = current_context()
     return context.find(*args, **kwargs)
+
+
+def set_task_factory(components, *, loop=None):
+    if loop is None:
+        loop = asyncio.get_event_loop()
+
+    loop.set_task_factory(
+        functools.partial(
+            task_factory,
+            default=lambda _: components,
+            parent_factory=loop.get_task_factory()
+        )
+    )

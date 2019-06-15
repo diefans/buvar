@@ -43,7 +43,7 @@ async def test_di():
     context.add(Foo())
     context.add(Foo(name='bar'), name='bar')
 
-    baz, = di.eject(Baz)
+    baz, = di.nject(Baz)
     assert isinstance(baz, Baz)
     assert baz == {
         'baz': True,

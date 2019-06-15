@@ -50,7 +50,7 @@ def register(adapter):
     return adapter
 
 
-def eject(*targets, **dependencies):
+def nject(*targets, **dependencies):
     from buvar import context
 
     # create components

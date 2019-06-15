@@ -1,4 +1,5 @@
 [tool.poetry]
+build = 'build.py'
 name = "buvar"
 version = "0.5.0"
 description = "General purpose config loader"

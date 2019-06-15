@@ -66,7 +66,7 @@ def find(*args, **kwargs):
     return context.find(*args, **kwargs)
 
 
-def set_task_factory(components, *, loop=None):
+def set_task_factory(components, *, loop=None):     # noqa: W0621
     if loop is None:
         loop = asyncio.get_event_loop()
 

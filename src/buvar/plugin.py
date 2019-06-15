@@ -97,7 +97,7 @@ class Stages:
 
         # stage 1: bootstrap plugins
         bootstrap = self._bootstrap()
-        fut_main_task = next(bootstrap)
+        fut_main_task = next(bootstrap)     # noqa: R1708
         # main task still waiting
         yield fut_main_task
 

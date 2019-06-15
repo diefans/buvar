@@ -10,8 +10,22 @@ def event_loop(event_loop):
     return event_loop
 
 
+@pytest.fixture(params=['resolve', 'c_resolve'])
+def nject(request):
+    if request.param == 'resolve':
+        from buvar.di import resolve
+        yield resolve.nject
+    else:
+        try:
+            from buvar.di import c_resolve as resolve
+            yield resolve.nject         # noqa: I1101
+        except ImportError:
+            pytest.skip(f'C extension {request.param} not available.')
+            return
+
+
 @pytest.mark.asyncio
-async def test_di(benchmark):
+async def test_di(benchmark, nject):
     from buvar import context, di
 
     class Foo(dict):
@@ -43,7 +57,7 @@ async def test_di(benchmark):
     context.add(Foo())
     context.add(Foo(name='bar'), name='bar')
 
-    baz, = benchmark(di.nject, Baz)
+    baz, = benchmark(nject, Baz)
     assert isinstance(baz, Baz)
     assert baz == {
         'baz': True,

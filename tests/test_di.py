@@ -11,7 +11,7 @@ def event_loop(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_di():
+async def test_di(benchmark):
     from buvar import context, di
 
     class Foo(dict):
@@ -43,7 +43,7 @@ async def test_di():
     context.add(Foo())
     context.add(Foo(name='bar'), name='bar')
 
-    baz, = di.nject(Baz)
+    baz, = benchmark(di.nject, Baz)
     assert isinstance(baz, Baz)
     assert baz == {
         'baz': True,

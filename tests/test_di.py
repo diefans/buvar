@@ -25,7 +25,7 @@ def nject(request):
 
 
 @pytest.mark.asyncio
-async def test_di(benchmark, nject):
+async def test_di(nject):
     from buvar import context, di
 
     class Foo(dict):
@@ -44,25 +44,32 @@ async def test_di(benchmark, nject):
     class Bim:
         pass
 
+    class Bum(dict):
+        def __init__(self):
+            super().__init__(bum=True)
+
     @di.register
-    def baz_adapter(
+    async def baz_adapter(
         bar: Bar,
         bam: Foo = 1,
         bim: Bim = 'default',
         *,
+        bum: Bum,
         foo: Foo = None
     ) -> Baz:
-        return Baz(foo=foo, bam=bam, bim=bim, bar=bar)
+        return Baz(foo=foo, bam=bam, bim=bim, bar=bar, bum=bum)
 
     context.add(Foo())
     context.add(Foo(name='bar'), name='bar')
 
-    baz, = benchmark(nject, Baz)
+    baz, bum = await nject(Baz, Bum, bum=Bum())
     assert isinstance(baz, Baz)
     assert baz == {
         'baz': True,
         'bam': {'foo': True, 'name': None},
         'foo': {'foo': True, 'name': None},
         'bim': 'default',
+        'bum': {'bum': True},
         'bar': {'bar': True, 'foo': {'foo': True, 'name':  'bar'}},
     }
+    assert bum == {'bum': True}

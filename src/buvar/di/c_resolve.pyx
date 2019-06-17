@@ -1,11 +1,13 @@
 # cython: language_level=3
-import itertools
-
-from . import adapters, ResolveError, missing
+from . import adapters, ResolveError
 from .. import components
 
 
-def nject(*targets, **dependencies):
+missing = object()
+
+
+async def nject(*targets, **dependencies):
+    """Resolve all dependencies and return the created component."""
     from buvar import context
 
     # create components
@@ -24,11 +26,14 @@ def nject(*targets, **dependencies):
         cmps.add(dep, name=name)
 
     # find the proper components to instantiate that class
-    for name, target in ((None, target) for target in targets):
-        yield resolve_adapter(cmps, target, name=name)
+    injected = [
+        await resolve_adapter(cmps, target, name=name)
+        for name, target in ((None, target) for target in targets)
+    ]
+    return injected
 
 
-def resolve_adapter(cmps, target, *, name=None, default=missing):
+async def resolve_adapter(cmps, target, *, name=None, default=missing):
     # find in components
     try:
         component = _get_name_or_default(cmps, target, name)
@@ -44,37 +49,22 @@ def resolve_adapter(cmps, target, *, name=None, default=missing):
         return default
 
     for adapter in possible_adapters:
-        annotations = {
-            arg: adapter.spec.annotations[arg]
-            for arg in itertools.chain(
-                adapter.spec.args,
-                adapter.spec.kwonlyargs
-            )
-        }
-        defaults = dict(
-            itertools.chain(
-                zip(
-                    reversed(adapter.spec.args or []),
-                    reversed(adapter.spec.defaults or [])
-                ),
-                (adapter.spec.kwonlydefaults or {}).items()
-            )
-        )
         try:
             adapter_args = {
-                name: resolve_adapter(
+                name: await resolve_adapter(
                     cmps,
                     dependency_target,
                     name=name,
-                    default=defaults.get(name, missing)
+                    default=adapter.defaults.get(name, missing)
                 )
-                for name, dependency_target in annotations.items()
+                for name, dependency_target in adapter.annotations.items()
             }
         except ResolveError:
             # try next adapter
             pass
         else:
-            component = adapter.create(**adapter_args)
+            component = await adapter.create(**adapter_args)
+            # we do not use the name
             cmps.add(component)
             return component
     if default is missing:

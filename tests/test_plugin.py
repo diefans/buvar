@@ -29,7 +29,7 @@ def test_run_get_event_loop(event_loop, mocker):
     from buvar import plugin
     mocker.patch.object(plugin.asyncio, 'get_event_loop').return_value = event_loop
 
-    async def test_plugin(load):
+    async def test_plugin():
         pass
 
     plugin.run(
@@ -42,10 +42,10 @@ def test_run_load_twice(event_loop):
 
     loaded = {}
 
-    async def test_plugin(load):
+    async def test_plugin(include):
         assert not loaded
         loaded[True] = True
-        await load(test_plugin)
+        await include(test_plugin)
 
     plugin.run(
         test_plugin,
@@ -57,7 +57,7 @@ def test_run_iterable(event_loop):
 
     state = {}
 
-    async def iter_plugin(load):
+    async def iter_plugin():
         async def a():
             state['a'] = True
 
@@ -87,8 +87,8 @@ def test_run_server(event_loop, caplog):
         await fut_server
         assert 'Server stopped' in caplog.text
 
-    async def test_plugin(load):
-        await load('tests.server_plugin')
+    async def test_plugin(include):
+        await include('tests.server_plugin')
         yield stop_server_on_start()
 
     plugin.run(
@@ -102,7 +102,7 @@ def test_run_server(event_loop, caplog):
 def test_plugin_error(event_loop):
     from buvar import plugin
 
-    async def broken_plugin(load):
+    async def broken_plugin():
         raise Exception('Plugin is broken')
 
     with pytest.raises(Exception) as e:
@@ -116,7 +116,7 @@ def test_cancel_main_task(event_loop):
 
     cmps = components.Components()
 
-    async def server_plugin(load):
+    async def server_plugin():
         async def server():
             try:
                 await asyncio.Future()
@@ -176,7 +176,7 @@ def test_teardown(event_loop):
 
     state = {}
 
-    async def test_plugin(load):
+    async def test_plugin():
         state['plugin'] = True
 
         async def task():

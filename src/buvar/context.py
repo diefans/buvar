@@ -35,8 +35,7 @@ def task_factory(loop, coro, default=None, parent_factory=None):
         parent_factory if parent_factory is not None
         else asyncio.tasks.Task
     )
-
-    task = factory(coro, loop=loop)
+    task = factory(loop=loop, coro=coro)
 
     if default is None:
         default = default_components_context

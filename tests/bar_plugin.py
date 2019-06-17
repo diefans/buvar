@@ -9,7 +9,7 @@ async def baz():
     pass
 
 
-async def plugin_bar(load):
+async def plugin_bar(include):
     context.add('bar', 'bar')
     yield bar()
     yield baz()

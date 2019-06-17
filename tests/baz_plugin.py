@@ -1,2 +1,2 @@
-async def plugin(load):
-    await load('....not.found')
+async def plugin(include):
+    await include('....not.found')

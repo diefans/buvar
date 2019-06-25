@@ -1,7 +1,7 @@
 [tool.poetry]
 build = 'build.py'
 name = "buvar"
-version = "0.5.0"
+version = "1.0.0"
 description = "General purpose config loader"
 authors = ["Oliver Berger <diefans@gmail.com>"]
 license = "Apache-2.0"

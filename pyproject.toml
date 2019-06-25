@@ -7,35 +7,35 @@ authors = ["Oliver Berger <diefans@gmail.com>"]
 license = "Apache-2.0"
 include = ['COPYRIGHT', 'tests/*']
 
+[tool.poetry.scripts]
+buvar = 'buvar.cli:main'
+
 [tool.poetry.dependencies]
 python = "^3.6"
-attrs = "*"
-pytoml = "*"
-structlog = "*"
 orjson = "^2.0"
 tomlkit = "^0.5.3"
+toml = "^0.10"
+multidict = "^4.5"
+structlog = "^19.1"
+attrs = "^19.1"
 
 [tool.poetry.dev-dependencies]
-pytest = "*"
-pytest-cov = "*"
-pytest-asyncio = "*"
-pytest-cache = "*"
-pytest-watch = "*"
-pytest-mock = "*"
-mock = "*"
-async_generator = "*"
-coverage = "*"
-pylava = "*"
-pylava-pylint = "*"
-pycodestyle = "*"
-pydocstyle = "*"
-radon = "*"
-isort = "*"
-ipython = "*"
-pdbpp = "*"
-colorlog = "*"
-tox = "*"
+pytest = "^4.6"
 pytest-randomly = "^3.0"
+pytest-watch = "^4.2"
+pytest-cache = "^1.0"
+pytest-mock = "^1.10"
+mock = "^3.0"
+pylava = "^0.2.2"
+pylava-pylint = "^0.0.3"
+pycodestyle = "^2.5"
+pydocstyle = "^3.0"
+ipython = "^7.5"
+isort = "^4.3"
+pdbpp = "^0.10.0"
+tox = "^3.12"
+pytest-cov = "^2.7"
+pytest-asyncio = "^0.10.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

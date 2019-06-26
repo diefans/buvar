@@ -29,6 +29,8 @@ async def nject(*targets, **dependencies):
         await resolve_adapter(cmps, target, name=name)
         for name, target in ((None, target) for target in targets)
     ]
+    if len(targets) == 1:
+        return injected[0]
     return injected
 
 
@@ -44,7 +46,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
     possible_adapters = adapters.get(target)
     if possible_adapters is None:
         if default is missing:
-            raise ResolveError('Adapter not found', target)
+            raise ResolveError("Adapter not found", target)
         return default
 
     for adapter in possible_adapters:
@@ -54,7 +56,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
                     cmps,
                     dependency_target,
                     name=name,
-                    default=adapter.defaults.get(name, missing)
+                    default=adapter.defaults.get(name, missing),
                 )
                 for name, dependency_target in adapter.annotations.items()
             }
@@ -67,7 +69,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
             cmps.add(component)
             return component
     if default is missing:
-        raise ResolveError('Adapter dependencies not found', target)
+        raise ResolveError("Adapter dependencies not found", target)
     return default
 
 

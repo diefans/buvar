@@ -26,7 +26,7 @@ class Components:
     """A component registry holds certain items identified by a
     discriminator."""
 
-    __slots__ = ('index',)
+    __slots__ = ("index",)
 
     def __init__(self, index=None):
         self.index = None
@@ -47,7 +47,7 @@ class Components:
 
     def pop(self):
         index = self.index.maps[0]
-        self.index = self.index.parents()
+        self.index = self.index.parents
         return index
 
     def __repr__(self):
@@ -56,7 +56,7 @@ class Components:
     def add(self, item, namespace=None, *, name=None):
         """Register `item` and optionally name it."""
         if inspect.isclass(item):
-            raise ValueError('A component should be an instance.')
+            raise ValueError("A component should be an instance.")
         if namespace is None:
             namespace = type(item)
 
@@ -71,10 +71,7 @@ class Components:
         except KeyError:
             if default is missing:
                 raise ComponentLookupError(
-                    'Component not found',
-                    namespace,
-                    name,
-                    default
+                    "Component not found", namespace, name, default
                 )
             return default
         return item
@@ -92,10 +89,8 @@ class Components:
         if inspect.isclass(namespace):
             items = None
             for key in self.index.keys():
-                if inspect.isclass(key) \
-                        and issubclass(key, namespace):
-                    if items is None \
-                            or issubclass(items, key):
+                if inspect.isclass(key) and issubclass(key, namespace):
+                    if items is None or issubclass(items, key):
                         items = key
 
         else:

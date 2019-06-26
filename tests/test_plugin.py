@@ -6,35 +6,27 @@ def test_run(event_loop):
 
     cmps = components.Components()
 
-    plugin.run(
-        'tests.foo_plugin',
-        components=cmps,
-        loop=event_loop
-    )
+    plugin.run("tests.foo_plugin", components=cmps, loop=event_loop)
 
-    assert cmps.get('foo_plugin') == {'foo': 'foo'}
+    assert cmps.get("foo_plugin") == {"foo": "foo"}
 
 
 def test_run_relative_out_of_packages(event_loop):
     from buvar import plugin
 
     with pytest.raises(RuntimeError):
-        plugin.run(
-            'tests.baz_plugin',
-            loop=event_loop
-        )
+        plugin.run("tests.baz_plugin", loop=event_loop)
 
 
 def test_run_get_event_loop(event_loop, mocker):
     from buvar import plugin
-    mocker.patch.object(plugin.asyncio, 'get_event_loop').return_value = event_loop
+
+    mocker.patch.object(plugin.asyncio, "get_event_loop").return_value = event_loop
 
     async def test_plugin():
         pass
 
-    plugin.run(
-        test_plugin,
-    )
+    plugin.run(test_plugin)
 
 
 def test_run_load_twice(event_loop):
@@ -47,9 +39,7 @@ def test_run_load_twice(event_loop):
         loaded[True] = True
         await include(test_plugin)
 
-    plugin.run(
-        test_plugin,
-    )
+    plugin.run(test_plugin)
 
 
 def test_run_iterable(event_loop):
@@ -59,18 +49,15 @@ def test_run_iterable(event_loop):
 
     async def iter_plugin():
         async def a():
-            state['a'] = True
+            state["a"] = True
 
         async def b():
-            state['b'] = True
+            state["b"] = True
 
         return [a(), b()]
 
-    plugin.run(
-        iter_plugin,
-        loop=event_loop
-    )
-    assert state == {'a': True, 'b': True}
+    plugin.run(iter_plugin, loop=event_loop)
+    assert state == {"a": True, "b": True}
 
 
 def test_run_server(event_loop, caplog):
@@ -80,34 +67,30 @@ def test_run_server(event_loop, caplog):
     cmps = components.Components()
 
     async def stop_server_on_start():
-        fut_server = context.get(asyncio.Future, name='server')
-        evt_server_started = context.get(asyncio.Event, name='server_started')
+        fut_server = context.get(asyncio.Future, name="server")
+        evt_server_started = context.get(asyncio.Event, name="server_started")
         await evt_server_started.wait()
         fut_server.cancel()
         await fut_server
-        assert 'Server stopped' in caplog.text
+        assert "Server stopped" in caplog.text
 
     async def test_plugin(include):
-        await include('tests.server_plugin')
+        await include("tests.server_plugin")
         yield stop_server_on_start()
 
-    plugin.run(
-        test_plugin,
-        components=cmps,
-        loop=event_loop
-    )
-    assert 'Server started' in caplog.text
+    plugin.run(test_plugin, components=cmps, loop=event_loop)
+    assert "Server started" in caplog.text
 
 
 def test_plugin_error(event_loop):
     from buvar import plugin
 
     async def broken_plugin():
-        raise Exception('Plugin is broken')
+        raise Exception("Plugin is broken")
 
     with pytest.raises(Exception) as e:
         plugin.run(broken_plugin, loop=event_loop)
-        assert e.error.args == ('Plugin is broken',)
+        assert e.error.args == ("Plugin is broken",)
 
 
 def test_cancel_main_task(event_loop):
@@ -122,16 +105,18 @@ def test_cancel_main_task(event_loop):
                 await asyncio.Future()
             except asyncio.CancelledError:
                 assert True
+
         yield server()
 
-        fut_main_task = cmps.get('buvar', name='main_task')
+        fut_main_task = cmps.get("buvar", name="main_task")
         fut_cancel = asyncio.Future()
         fut_cancel.add_done_callback(lambda fut: fut_main_task.cancel())
-        evt_plugins_loaded = cmps.get('buvar', name='plugins_loaded')
+        evt_plugins_loaded = cmps.get("buvar", name="plugins_loaded")
 
         async def wait_for_plugins_loaded():
             await evt_plugins_loaded.wait()
             fut_cancel.set_result(True)
+
         yield wait_for_plugins_loaded()
 
     with pytest.raises(asyncio.CancelledError):
@@ -141,32 +126,30 @@ def test_cancel_main_task(event_loop):
 def test_resolve_dotted_name():
     from buvar import plugin
 
-    fun = plugin.resolve_dotted_name('dotted:name')
+    fun = plugin.resolve_dotted_name("dotted:name")
 
-    assert fun() == 'foobar'
+    assert fun() == "foobar"
 
 
 def test_resolve_dotted_name_no_module():
     from buvar import plugin
 
     with pytest.raises(ValueError):
-        plugin.resolve_dotted_name('nomodule:name')
+        plugin.resolve_dotted_name("nomodule:name")
 
 
 def test_resolve_dotted_name_wrong_name():
     from buvar import plugin
 
     with pytest.raises(ValueError):
-        plugin.resolve_dotted_name('nomodule:na:me')
+        plugin.resolve_dotted_name("nomodule:na:me")
 
 
 def test_resolve_plugin_not_async(event_loop):
     from buvar import plugin
 
     with pytest.raises(ValueError):
-        plugin.resolve_plugin(
-            lambda: None,
-        )
+        plugin.resolve_plugin(lambda: None)
 
 
 def test_teardown(event_loop):
@@ -177,40 +160,38 @@ def test_teardown(event_loop):
     state = {}
 
     async def test_plugin():
-        state['plugin'] = True
+        state["plugin"] = True
 
         async def task():
-            state['task'] = True
+            state["task"] = True
 
             async def teardown():
-                state['teardown'] = True
+                state["teardown"] = True
 
             return teardown()
 
         async def task2():
             async def teardown2():
-                state['teardown2'] = True
+                state["teardown2"] = True
+
             yield teardown2()
 
         async def task3():
             async def teardown3():
-                state['teardown3'] = True
+                state["teardown3"] = True
+
             return [teardown3()]
 
         yield task()
         yield task2()
         yield task3()
 
-    plugin.run(
-        test_plugin,
-        components=cmps,
-        loop=event_loop
-    )
+    plugin.run(test_plugin, components=cmps, loop=event_loop)
 
     assert state == {
-        'plugin': True,
-        'task': True,
-        'teardown': True,
-        'teardown2': True,
-        'teardown3': True,
+        "plugin": True,
+        "task": True,
+        "teardown": True,
+        "teardown2": True,
+        "teardown3": True,
     }

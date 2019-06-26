@@ -12,8 +12,8 @@ import structlog
 from . import context
 from .components import Components
 
-PLUGIN_FUNCTION_NAME = 'plugin'
-BUVAR_NAMESPACE = 'buvar'
+PLUGIN_FUNCTION_NAME = "plugin"
+BUVAR_NAMESPACE = "buvar"
 
 
 class Bootstrap:
@@ -29,19 +29,16 @@ class Bootstrap:
 
         # a collection of all tasks to run
         self.tasks = collections.OrderedDict()
-        self.components.add(self.tasks, BUVAR_NAMESPACE, name='tasks')
+        self.components.add(self.tasks, BUVAR_NAMESPACE, name="tasks")
 
         self.evt_plugins_loaded = asyncio.Event(loop=self.loop)
         self.components.add(
-            self.evt_plugins_loaded, BUVAR_NAMESPACE, name='plugins_loaded')
+            self.evt_plugins_loaded, BUVAR_NAMESPACE, name="plugins_loaded"
+        )
 
         # schedule the main task, which waits until all plugins are loaded
-        self.fut_main_task = asyncio.ensure_future(
-            self._run_tasks(),
-            loop=self.loop
-        )
-        self.components.add(
-            self.fut_main_task, BUVAR_NAMESPACE, name='main_task')
+        self.fut_main_task = asyncio.ensure_future(self._run_tasks(), loop=self.loop)
+        self.components.add(self.fut_main_task, BUVAR_NAMESPACE, name="main_task")
 
     async def include(self, plugin):
         """Hook the plugin from another plugin.
@@ -66,12 +63,16 @@ class Bootstrap:
     def load(self, plugin):
         try:
             self.loop.run_until_complete(self.include(plugin))
-        except Exception as ex:     # noqa: E722
+        except Exception as ex:  # noqa: E722
             # if a plugin raises an error, we cancel the scheduled main task
             import traceback
+
             logger = structlog.get_logger()
-            logger.error('Error while loading plugins',
-                         exception=ex, traceback=traceback.format_exc())
+            logger.error(
+                "Error while loading plugins",
+                exception=ex,
+                traceback=traceback.format_exc(),
+            )
             # cancel prepared main task
             self.fut_main_task.cancel()
             self.loop.run_until_complete(self.fut_main_task)
@@ -95,11 +96,9 @@ class Bootstrap:
         # run all tasks together
         current_tasks = self.tasks.values()
         result_list = await asyncio.gather(
-            *expand_async_generator(
-                itertools.chain(*current_tasks)
-            ),
+            *expand_async_generator(itertools.chain(*current_tasks)),
             return_exceptions=True,
-            loop=self.loop
+            loop=self.loop,
         )
         # flatten tasks
         teardown_tasks = list(flatten_tasks(result_list))
@@ -143,14 +142,14 @@ def staging(*plugins, components=None, loop=None):
         loop = asyncio.get_event_loop()
 
     evt_main_task_finished = asyncio.Event()
-    components.add(
-        evt_main_task_finished, BUVAR_NAMESPACE, name='main_task_finished')
+    components.add(evt_main_task_finished, BUVAR_NAMESPACE, name="main_task_finished")
     evt_teardown_finished = asyncio.Event()
-    components.add(
-        evt_teardown_finished, BUVAR_NAMESPACE, name='teardown_finished')
+    components.add(evt_teardown_finished, BUVAR_NAMESPACE, name="teardown_finished")
 
     # stage 1: bootstrap plugins
     bootstrap = Bootstrap(components=components, loop=loop)
+    components.add(bootstrap)
+
     for plugin in plugins:
         bootstrap.load(plugin)
     yield bootstrap.load
@@ -191,10 +190,8 @@ def resolve_plugin(plugin, function_name=PLUGIN_FUNCTION_NAME):
         # apply default name
         plugin = getattr(plugin, function_name)
 
-    if not (inspect.iscoroutinefunction(plugin)
-            or inspect.isasyncgenfunction(plugin)):
-        raise ValueError(
-            f'{plugin} must a coroutine or an async generator.')
+    if not (inspect.iscoroutinefunction(plugin) or inspect.isasyncgenfunction(plugin)):
+        raise ValueError(f"{plugin} must a coroutine or an async generator.")
 
     return plugin
 
@@ -202,37 +199,35 @@ def resolve_plugin(plugin, function_name=PLUGIN_FUNCTION_NAME):
 def resolve_dotted_name(name):
     """Use pkg_resources style dotted name to resolve a name."""
     # skip resolving for module and coroutine
-    if inspect.ismodule(name)\
-            or inspect.isroutine(name):
+    if inspect.ismodule(name) or inspect.isroutine(name):
         return name
 
     # relative import
-    if name.startswith('.'):
-        target_name = name.split('.')
+    if name.startswith("."):
+        target_name = name.split(".")
         frame = inspect.currentframe()
-        while frame.f_globals['__name__'].startswith(__package__):
+        while frame.f_globals["__name__"].startswith(__package__):
             frame = frame.f_back
 
-        caller_name = frame.f_globals['__name__'].split('.')
+        caller_name = frame.f_globals["__name__"].split(".")
         try:
             while not target_name[0]:
                 caller_name.pop()
                 target_name.pop(0)
-            name = '.'.join(itertools.chain(caller_name, target_name))
+            name = ".".join(itertools.chain(caller_name, target_name))
         except IndexError:
-            raise RuntimeError('Relative name gets out of parent packages!',
-                               name)
-    part = ':'
+            raise RuntimeError("Relative name gets out of parent packages!", name)
+    part = ":"
     module_name, _, attr_name = name.partition(part)
     if part in attr_name:
-        raise ValueError(f'Invalid name: {name}', name)
+        raise ValueError(f"Invalid name: {name}", name)
 
     if module_name in sys.modules:
         resolved = sys.modules[module_name]
     else:
         spec = importlib.util.find_spec(module_name)
         if spec is None:
-            raise ValueError(f'Invalid module: {module_name}', module_name)
+            raise ValueError(f"Invalid module: {module_name}", module_name)
         resolved = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(resolved)
         sys.modules[resolved.__name__] = resolved

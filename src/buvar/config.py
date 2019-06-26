@@ -22,13 +22,18 @@ class ConfigValue:
 
 
 def var(
-    default=missing, converter=None, name=None, validator=None, help=None
+    default=missing,
+    converter=None,
+    factory=missing,
+    name=None,
+    validator=None,
+    help=None,
 ):  # noqa: W0622
     return attr.ib(
-        default=default,
         metadata={CNF_KEY: ConfigValue(name, help)},
         converter=converter,
         validator=validator,
+        **({"default": default} if factory is missing else {"factory": factory}),
     )
 
 
@@ -91,11 +96,14 @@ class ConfigSource(dict):
         # config = schematize(__source, cls, env_prefix=env_prefix)
         self.env_prefix = env_prefix  # noqa: W0212
 
+    def merge(self, source):
+        merge_dict(self, source)
+
     def load(self, scheme, name=...):
         if name is ...:
             values = self
         else:
-            values = self[name]
+            values = self.get(name, {})
 
         scheme = schematize(
             scheme,
@@ -128,29 +136,56 @@ def merge_dict(dest, source):
     return dest
 
 
+def isunion(hint):
+    origin = getattr(hint, "__origin__", None)
+    return origin is typing.Union
+
+
+def isoptional(hint):
+    return isunion(hint) and len(hint.__args__) == 2 and type(None) in hint.__args__
+
+
+def optional_type(hint):
+    return hint.__args__[0]
+
+
 def schematize(attrs, source, env_prefix=""):
     """Create a scheme from the source dict and apply environment vars."""
     attrs_kwargs = {}
     assert isattrs(attrs), f"{attrs} must be attrs decorated"
     for attrib in attrs.__attrs_attrs__:
+        hints = typing.get_type_hints(attrs)
+        a_type = attrib.type
         a_name = attrib.name
+        a_hint = hints[a_name]
         env_name = "_".join(part for part in (env_prefix, a_name.upper()) if part)
         try:
-            if isattrs(attrib.type):
-                a_value = schematize(attrib.type, source[a_name], env_prefix=env_name)
+            if isattrs(a_type):
+                a_value = schematize(a_type, source[a_name], env_prefix=env_name)
             else:
                 a_value = os.environ.get(env_name, source.get(a_name, missing))
+                if isoptional(a_hint) and a_value is missing:
+                    a_value = None
+                    a_type = optional_type(a_type)
+
+                if issubclass(a_type, typing.Set):
+                    a_type = set
+                elif issubclass(a_type, typing.List):
+                    a_type = list
+                elif issubclass(a_type, typing.Dict):
+                    a_type = dict
+
                 if a_value is missing:
                     if attrib.default is missing:
                         raise ValueError("Attribute is missing", a_name, env_name)
                     # we skip this value if source is lacking but we have a default
                     continue
-                if attrib.converter is None:
-                    if attrib.type is typing.List:
-                        a_value = list(a_value)
-                    else:
-                        # cast type
-                        a_value = attrib.type(a_value)
+                if attrib.converter is None and not isoptional(a_hint):
+                    # cast type
+                    a_value = a_type(a_value)
+                else:
+                    pass
+
             attrs_kwargs[a_name] = a_value
         except KeyError:
             logger.warn("Key not in source", key=a_name, source=source)

@@ -1,4 +1,5 @@
 """Very simple plugin architecture for asyncio."""
+import contextlib
 import asyncio
 import collections
 import collections.abc
@@ -13,7 +14,22 @@ from . import context
 from .components import Components
 
 PLUGIN_FUNCTION_NAME = "plugin"
-BUVAR_NAMESPACE = "buvar"
+
+
+class Tasks(collections.OrderedDict):
+    pass
+
+
+class MainTaskFinished(asyncio.Event):
+    pass
+
+
+class PluginsLoaded(asyncio.Event):
+    pass
+
+
+class CancelMainTask(asyncio.Event):
+    pass
 
 
 class Bootstrap:
@@ -21,24 +37,38 @@ class Bootstrap:
     """Maintain the plugin loading state."""
 
     def __init__(self, *, components=None, loop=None):
-        self.loop = asyncio.get_event_loop() if loop is None else loop
-        self.components = Components() if components is None else components
+        self.loop = loop or asyncio.get_event_loop()
+        self.components = components or Components()
 
         # set task factory to serve our components context
         context.set_task_factory(self.components, loop=self.loop)
 
         # a collection of all tasks to run
-        self.tasks = collections.OrderedDict()
-        self.components.add(self.tasks, BUVAR_NAMESPACE, name="tasks")
+        self.tasks = Tasks()
+        self.components.add(self.tasks)
 
-        self.evt_plugins_loaded = asyncio.Event(loop=self.loop)
-        self.components.add(
-            self.evt_plugins_loaded, BUVAR_NAMESPACE, name="plugins_loaded"
-        )
+        self.evt_plugins_loaded = PluginsLoaded(loop=self.loop)
+        self.components.add(self.evt_plugins_loaded)
 
         # schedule the main task, which waits until all plugins are loaded
         self.fut_main_task = asyncio.ensure_future(self._run_tasks(), loop=self.loop)
-        self.components.add(self.fut_main_task, BUVAR_NAMESPACE, name="main_task")
+        self.fut_cancel_main_task = asyncio.ensure_future(
+            self._cancel_main_task(), loop=self.loop
+        )
+
+        self.evt_cancel_main_task = CancelMainTask(loop=self.loop)
+        components.add(self.evt_cancel_main_task)
+        self.evt_main_task_finished = MainTaskFinished(loop=self.loop)
+        components.add(self.evt_main_task_finished)
+
+    async def _cancel_main_task(self):
+        try:
+            await self.evt_cancel_main_task.wait()
+        except asyncio.CancelledError:
+            pass
+        else:
+            self.fut_main_task.cancel()
+            # await self.fut_main_task
 
     async def include(self, plugin):
         """Hook the plugin from another plugin.
@@ -61,6 +91,7 @@ class Bootstrap:
             self.tasks[plugin].extend(callables)
 
     def load(self, plugin):
+        """Load a plugin."""
         try:
             self.loop.run_until_complete(self.include(plugin))
         except Exception as ex:  # noqa: E722
@@ -78,9 +109,11 @@ class Bootstrap:
             self.loop.run_until_complete(self.fut_main_task)
             raise
 
+    @contextlib.contextmanager
     def run(self):
+        """Run all collected tasks on context exit."""
         try:
-            return self.fut_main_task
+            yield self.fut_main_task
         finally:
             self.evt_plugins_loaded.set()
 
@@ -89,20 +122,28 @@ class Bootstrap:
         try:
             await self.evt_plugins_loaded.wait()
         except asyncio.CancelledError:
+            # stop waiting to cancel
+            self.fut_cancel_main_task.cancel()
+            await self.fut_cancel_main_task
             # we were in plugin loading stage
             # so we just return and finish
             return
 
         # run all tasks together
         current_tasks = self.tasks.values()
-        result_list = await asyncio.gather(
-            *expand_async_generator(itertools.chain(*current_tasks)),
-            return_exceptions=True,
-            loop=self.loop,
-        )
-        # flatten tasks
-        teardown_tasks = list(flatten_tasks(result_list))
-        return teardown_tasks
+        try:
+            result_list = await asyncio.gather(
+                *expand_async_generator(itertools.chain(*current_tasks)),
+                return_exceptions=True,
+                loop=self.loop,
+            )
+            self.evt_main_task_finished.set()
+            # flatten tasks
+            teardown_tasks = list(flatten_tasks(result_list))
+            return teardown_tasks
+        finally:
+            self.fut_cancel_main_task.cancel()
+            await self.fut_cancel_main_task
 
 
 def staging(*plugins, components=None, loop=None):
@@ -122,9 +163,6 @@ def staging(*plugins, components=None, loop=None):
     >>> load = next(stages)
     >>> load(plugin)
 
-    >>> # finish bootstrap and run main task
-    >>> main_task = next(stages)
-
     >>> # wait for main task to finish
     >>> teardown_tasks = next(stages)
 
@@ -141,31 +179,22 @@ def staging(*plugins, components=None, loop=None):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    evt_main_task_finished = asyncio.Event()
-    components.add(evt_main_task_finished, BUVAR_NAMESPACE, name="main_task_finished")
-    evt_teardown_finished = asyncio.Event()
-    components.add(evt_teardown_finished, BUVAR_NAMESPACE, name="teardown_finished")
-
     # stage 1: bootstrap plugins
     bootstrap = Bootstrap(components=components, loop=loop)
     components.add(bootstrap)
-
-    for plugin in plugins:
-        bootstrap.load(plugin)
-    yield bootstrap.load
+    with bootstrap.run() as fut_main_task:
+        for plugin in plugins:
+            bootstrap.load(plugin)
+        # we yield load to additionally load arbitrary stuff, after standard
+        # plugin loading
+        yield bootstrap.load
 
     # stage 2: run main task
-    fut_main_task = bootstrap.run()
-    yield fut_main_task
-
-    # finish bootstrap and start main task
     teardown_tasks = loop.run_until_complete(fut_main_task)
-    evt_main_task_finished.set()
     yield teardown_tasks
 
     # stage 3: teardown
     loop.run_until_complete(asyncio.gather(*teardown_tasks, loop=loop))
-    evt_teardown_finished.set()
     yield None
 
 

@@ -105,17 +105,18 @@ def test_cancel_main_task(event_loop):
                 await asyncio.Future()
             except asyncio.CancelledError:
                 assert True
+            else:
+                assert False
 
         yield server()
 
-        fut_main_task = cmps.get("buvar", name="main_task")
-        fut_cancel = asyncio.Future()
-        fut_cancel.add_done_callback(lambda fut: fut_main_task.cancel())
-        evt_plugins_loaded = cmps.get("buvar", name="plugins_loaded")
+        evt_cancel_main_task = cmps.get(plugin.CancelMainTask)
+        evt_plugins_loaded = cmps.get(plugin.PluginsLoaded)
 
         async def wait_for_plugins_loaded():
             await evt_plugins_loaded.wait()
-            fut_cancel.set_result(True)
+            # shutdown
+            evt_cancel_main_task.set()
 
         yield wait_for_plugins_loaded()
 

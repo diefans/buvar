@@ -159,3 +159,28 @@ list_val = []
 
 """
     )  # noqa: W291
+
+
+def test_nested_attrs_typing():
+    import typing
+    import attr
+    from buvar import config
+
+    @attr.s(auto_attribs=True)
+    class Baz:
+        baz: str = "foobar"
+
+    @attr.s(auto_attribs=True)
+    class Bar:
+        baz: Baz
+
+    @attr.s(auto_attribs=True)
+    class Foo:
+        bars: typing.List[Bar] = []
+
+    source = config.ConfigSource(
+        {"foo": {"bars": [{"baz": {"baz": "something else"}}]}}, env_prefix="TEST"
+    )
+
+    foo = source.load(Foo, "foo")
+    assert foo == Foo(bars=[Bar(baz=Baz(baz="something else"))])

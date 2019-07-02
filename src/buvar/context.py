@@ -52,7 +52,7 @@ def current_context(loop=None):
 
 def add(*args, **kwargs):
     context = current_context()
-    context.add(*args, **kwargs)
+    return context.add(*args, **kwargs)
 
 
 def get(*args, **kwargs):

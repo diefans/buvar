@@ -6,6 +6,8 @@ import attr
 import structlog
 import tomlkit
 
+import cattr
+
 CNF_KEY = "buvar_config"
 
 
@@ -164,27 +166,18 @@ def schematize(attrs, source, env_prefix=""):
                 a_value = schematize(a_type, source[a_name], env_prefix=env_name)
             else:
                 a_value = os.environ.get(env_name, source.get(a_name, missing))
-                if isoptional(a_hint) and a_value is missing:
-                    a_value = None
-                    a_type = optional_type(a_type)
-
-                if issubclass(a_type, typing.Set):
-                    a_type = set
-                elif issubclass(a_type, typing.List):
-                    a_type = list
-                elif issubclass(a_type, typing.Dict):
-                    a_type = dict
 
                 if a_value is missing:
-                    if attrib.default is missing:
-                        raise ValueError("Attribute is missing", a_name, env_name)
-                    # we skip this value if source is lacking but we have a default
-                    continue
-                if attrib.converter is None and not isoptional(a_hint):
-                    # cast type
-                    a_value = a_type(a_value)
-                else:
-                    pass
+                    if isoptional(a_hint):
+                        # a_type = optional_type(a_type)
+                        a_value = None
+                    else:
+                        if attrib.default is missing:
+                            raise ValueError("Attribute is missing", a_name, env_name)
+                        # we skip this value if source is lacking but we have a default
+                        continue
+                elif attrib.converter is None:
+                    a_value = cattr.structure(a_value, a_type)
 
             attrs_kwargs[a_name] = a_value
         except KeyError:

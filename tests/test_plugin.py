@@ -98,19 +98,28 @@ def test_cancel_main_task(event_loop):
     from buvar import plugin, components
 
     cmps = components.Components()
+    state = {}
 
     async def server_plugin():
+        evt_cancel_main_task = cmps.get(plugin.CancelMainTask)
+
         async def server():
+            async def teardown():
+                state["teardown"] = True
+
             try:
+                state["server"] = True
+                evt_cancel_main_task.set()
                 await asyncio.Future()
             except asyncio.CancelledError:
                 assert True
             else:
                 assert False
 
+            yield teardown()
+
         yield server()
 
-        evt_cancel_main_task = cmps.get(plugin.CancelMainTask)
         evt_plugins_loaded = cmps.get(plugin.PluginsLoaded)
 
         async def wait_for_plugins_loaded():
@@ -118,10 +127,10 @@ def test_cancel_main_task(event_loop):
             # shutdown
             evt_cancel_main_task.set()
 
-        yield wait_for_plugins_loaded()
+        # yield wait_for_plugins_loaded()
 
-    with pytest.raises(asyncio.CancelledError):
-        plugin.run(server_plugin, components=cmps, loop=event_loop)
+    plugin.run(server_plugin, components=cmps, loop=event_loop)
+    assert state == {"teardown": True, "server": True}
 
 
 def test_resolve_dotted_name():

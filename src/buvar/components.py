@@ -64,6 +64,7 @@ class Components:
             self.index[namespace][name] = item
         else:
             self.index[namespace] = {name: item}
+        return item
 
     def get(self, namespace, *, name=None, default=missing):
         try:

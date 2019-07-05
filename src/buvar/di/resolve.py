@@ -1,6 +1,9 @@
-from . import adapters, ResolveError
-from .. import components
+import inspect
 
+import typing_inspect
+
+from . import ResolveError, adapters
+from .. import components
 
 missing = object()
 
@@ -34,6 +37,18 @@ async def nject(*targets, **dependencies):
     return injected
 
 
+def find_string_target_adapters(target):
+    name = target.__name__
+
+    # search for string and match
+    string_adapters = adapters.get(name)
+    # find name in adapter module
+    if string_adapters:
+        for adapter in string_adapters:
+            if adapter.hints["return"] is target:
+                yield adapter
+
+
 async def resolve_adapter(cmps, target, *, name=None, default=missing):
     # find in components
     try:
@@ -43,7 +58,10 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    possible_adapters = adapters.get(target)
+    possible_adapters = adapters.get(target) or list(
+        find_string_target_adapters(target)
+    )
+
     if possible_adapters is None:
         if default is missing:
             raise ResolveError("Adapter not found", target)

@@ -30,6 +30,8 @@ async def nject(*targets, **dependencies):
         await resolve_adapter(cmps, target, name=name)
         for name, target in ((None, target) for target in targets)
     ]
+    if len(targets) == 1:
+        return injected[0]
     return injected
 
 

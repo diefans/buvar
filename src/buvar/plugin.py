@@ -272,12 +272,12 @@ def resolve_dotted_name(name):
 
     # relative import
     if name.startswith("."):
-        target_name = name.split(".")
+        target_name = name.split(".")[1:]
         frame = inspect.currentframe()
         while frame.f_globals["__name__"].startswith(__package__):
             frame = frame.f_back
 
-        caller_name = frame.f_globals["__name__"].split(".")
+        caller_name = frame.f_globals["__package__"].split(".")
         try:
             while not target_name[0]:
                 caller_name.pop()

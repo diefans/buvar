@@ -1,118 +1,89 @@
 """Dependency injection."""
-import collections
+import functools
 import inspect
 import itertools
-import typing
 
-import attr
-import typing_inspect
-
-from .. import util
+from . import adapter
 
 
-class ResolveError(Exception):
-    pass
+class register:
+    """Register a class, function or method to adapt arguments into something else.
 
+    >>> class Bar:
+    ...     pass
 
-def _extract_optional_type(hint):
-    if typing_inspect.is_optional_type(hint):
-        hint, _ = typing_inspect.get_args(hint)
-        return hint
-    return hint
+    >>> @register
+    ... class Foo:
+    ...     def __init__(self, bar: Bar):
+    ...         self.bar = bar
 
+    ...     @register
+    ...     def adapt(cls, bar: Bar) -> Foo:
+    ...         return cls(bar)
 
-@attr.s(auto_attribs=True)
-class Adapter:
-    callable: typing.Callable
-    spec: inspect.FullArgSpec
-    defaults: typing.Dict[str, typing.Any]
-    globals: typing.Dict[str, typing.Any]
-    locals: typing.Dict[str, typing.Any]
+    >>> @register
+    ... def adapt(bar: Bar) -> Foo:
+    ...     return Foo(bar)
 
-    @util.reify
-    def hints(self):
-        hints = typing.get_type_hints(
-            self.callable.__func__
-            if isinstance(self.callable, classmethod)
-            else self.callable.__init__
-            if inspect.isclass(self.callable)
-            else self.callable,
-            self.globals,
-            self.locals,
-        )
-        return hints
+    """
 
-    @util.reify
-    def annotations(self):
-        hints = self.hints
-        annotations = {
-            arg: _extract_optional_type(hints[arg])
-            for arg in itertools.chain(self.spec.args, self.spec.kwonlyargs)
-        }
-        return annotations
+    def __new__(cls, func):
+        instance = super().__new__(cls)
+        if inspect.isclass(func):
+            instance.__init__(func)
+            return func
+        return instance
 
-    async def create(self, *args, **kwargs):
-        """Create the target instance."""
-        if inspect.iscoroutinefunction(self.callable):
-            adapted = await self.callable(*args, **kwargs)
-        else:
-            adapted = self.callable(*args, **kwargs)
-        return adapted
-
-    @classmethod
-    def register(cls, adapter: typing.Callable):
-        """Register an adapter for later lookup."""
-        # Inspect param types of class or fun.
-        if inspect.isroutine(adapter):
-            # __func__ indicates a classmethod
-            if isinstance(adapter, classmethod):
-                spec = inspect.getfullargspec(adapter.__func__)
-                a_source = adapter.__func__.__annotations__
-                # remove cls
-                spec.args.pop(0)
-            else:
-                spec = inspect.getfullargspec(adapter)
-                a_source = adapter.__annotations__
-
-            # routine needs to have a return annotaion
-            if "return" not in a_source:
-                raise TypeError("Return type annoation missing", adapter)
-            target = a_source["return"]
-        elif inspect.isclass(adapter):
-            target = adapter
-            spec = inspect.getfullargspec(adapter)
-            # remove self
+    def __init__(self, func):
+        currentframe = inspect.currentframe()
+        spec = inspect.getfullargspec(func)
+        if inspect.isclass(func):
+            # we remove self from class specs
             spec.args.pop(0)
-        else:
-            raise TypeError("Expecting a routine or a class", adapter)
 
-        # all spec must be annotated
+        implements = func if inspect.isclass(func) else spec.annotations["return"]
+
+        # all none defaults must be annotated
         defaults = dict(
             itertools.chain(
                 zip(reversed(spec.args or []), reversed(spec.defaults or [])),
                 (spec.kwonlydefaults or {}).items(),
             )
         )
-        frame = inspect.currentframe().f_back
-        frame_globals = frame.f_globals
-        frame_locals = frame.f_locals
 
-        adapter_spec = cls(
-            callable=adapter,
+        self.adapter = adapter.Adapter(
+            func=func,
             spec=spec,
+            frame=currentframe,
+            # globals=frame.f_globals,
+            # locals=frame.f_locals,
+            owner=None,
+            name=None,
             defaults=defaults,
-            globals=frame_globals,
-            locals=frame_locals,
+            implements=implements,
         )
-        adapters[target].append(adapter_spec)
+        adapter.adapters[implements].append(self.adapter)
 
-        return adapter
+    def __set_name__(self, owner, name):
+        self.adapter.owner = owner
+        self.adapter.name = name
+        # remove cls from args
+        self.adapter.spec.args.pop(0)
 
+        try:
+            hints = self.adapter.hints
+            self.adapter.implements = hints["return"]
+            adapter.adapters[hints["return"]].append(self.adapter)
+        except NameError:
+            pass
 
-adapters: typing.Dict[type, typing.List[Adapter]] = collections.defaultdict(list)
+    def __get__(self, instance, owner=None):
+        if owner is None:
+            owner = type(instance)
+        return functools.partial(self.adapter.func, owner)
 
-
-register = Adapter.register
+    def __call__(self, *args, **kwargs):
+        return self.adapter.func(*args, **kwargs)
 
 
 try:

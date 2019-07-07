@@ -1,7 +1,6 @@
 # cython: language_level=3
-from . import adapters, ResolveError
+from . import adapter
 from .. import components
-
 
 missing = object()
 
@@ -35,6 +34,18 @@ async def nject(*targets, **dependencies):
     return injected
 
 
+def find_string_target_adapters(target):
+    name = target.__name__
+
+    # search for string and match
+    string_adapters = adapter.adapters.get(name)
+    # find target name in string adapter types and find target in adapter
+    if string_adapters:
+        for adptr in string_adapters:
+            if adptr.hints["return"] is target:
+                yield adptr
+
+
 async def resolve_adapter(cmps, target, *, name=None, default=missing):
     # find in components
     try:
@@ -44,33 +55,36 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    possible_adapters = adapters.get(target)
+    possible_adapters = adapter.adapters.get(target) or list(
+        find_string_target_adapters(target)
+    )
+
     if possible_adapters is None:
         if default is missing:
-            raise ResolveError('Adapter not found', target)
+            raise adapter.ResolveError("No possible adapter found", target)
         return default
 
-    for adapter in possible_adapters:
+    for adptr in possible_adapters:
         try:
             adapter_args = {
                 name: await resolve_adapter(
                     cmps,
                     dependency_target,
                     name=name,
-                    default=adapter.defaults.get(name, missing)
+                    default=adptr.defaults.get(name, missing),
                 )
-                for name, dependency_target in adapter.annotations.items()
+                for name, dependency_target in adptr.annotations.items()
             }
-        except ResolveError:
+        except adapter.ResolveError:
             # try next adapter
             pass
         else:
-            component = await adapter.create(**adapter_args)
+            component = await adptr.create(**adapter_args)
             # we do not use the name
             cmps.add(component)
             return component
     if default is missing:
-        raise ResolveError('Adapter dependencies not found', target)
+        raise adapter.ResolveError("No adapter dependencies found", target)
     return default
 
 

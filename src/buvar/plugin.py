@@ -1,4 +1,30 @@
-"""Very simple plugin architecture for asyncio."""
+"""Very simple plugin architecture for asyncio.
+
+    >>> components = Components()
+    >>> loop = asyncio.get_event_loop()
+    >>> async def plugin(load):
+    ...     async def some_task():
+    ...         async def teardown():
+    ...             pass
+    ...         yield teardown()
+    ...     yield some_task()
+
+
+    >>> stages = Staging(components=components, loop=loop)
+    >>> load = next(stages)
+    >>> load(plugin)
+
+    >>> # wait for main task to finish
+    >>> teardown_tasks = next(stages)
+
+    >>> # finsh
+    >>> next(stages)
+
+
+    >>> stages = Staging(plugin, components=components, loop=loop)
+    >>> for stage in stages:
+    ...     pass
+"""
 import contextlib
 import asyncio
 import collections
@@ -33,7 +59,6 @@ class CancelMainTask(asyncio.Event):
 
 
 class Bootstrap:
-
     """Maintain the plugin loading state."""
 
     def __init__(self, *, components=None, loop=None):
@@ -170,34 +195,9 @@ class Bootstrap:
 
 
 class Staging:
+    """Generate all stages to run an application."""
+
     def __init__(self, *plugins, components=None, loop=None):
-        """Generate all stages to run an application.
-
-        >>> components = Components()
-        >>> loop = asyncio.get_event_loop()
-        >>> async def plugin(load):
-        ...     async def some_task():
-        ...         async def teardown():
-        ...             pass
-        ...         yield teardown()
-        ...     yield some_task()
-
-
-        >>> stages = Staging(components=components, loop=loop)
-        >>> load = next(stages)
-        >>> load(plugin)
-
-        >>> # wait for main task to finish
-        >>> teardown_tasks = next(stages)
-
-        >>> # finsh
-        >>> next(stages)
-
-
-        >>> stages = Staging(plugin, components=components, loop=loop)
-        >>> for stage in stages:
-        ...     pass
-        """
         self.components = components or Components()
         self.loop = loop or asyncio.get_event_loop()
 

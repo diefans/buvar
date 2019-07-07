@@ -3,6 +3,13 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def mock_adapters(mocker):
+    import collections
+
+    mocker.patch("buvar.di.adapter.adapters", collections.defaultdict(list))
+
+
 @pytest.fixture
 def event_loop(event_loop):
     from buvar import context, components
@@ -13,15 +20,17 @@ def event_loop(event_loop):
 
 
 @pytest.fixture(params=["resolve", "c_resolve"])
-def nject(request):
+def nject(request, mocker):
     if request.param == "resolve":
         from buvar.di import resolve
 
+        mocker.patch("buvar.di.nject", resolve.nject)
         yield resolve.nject
     else:
         try:
             from buvar.di import c_resolve as resolve
 
+            mocker.patch("buvar.di.nject", resolve.nject)
             yield resolve.nject  # noqa: I1101
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
@@ -29,7 +38,7 @@ def nject(request):
 
 
 @pytest.mark.asyncio
-async def test_di(nject):
+async def test_di_nject(nject):
     from buvar import context, di
 
     class Foo(dict):
@@ -74,120 +83,29 @@ async def test_di(nject):
     assert bum == {"bum": True}
 
 
-def test_di_register():
-    import attr
-    import inspect
-    import typing
-    import collections
-    import itertools
-    import functools
-
-    adapters: typing.Dict[type, typing.List[Adapter]] = collections.defaultdict(list)
-
-    @attr.s(auto_attribs=True)
-    class Adapter:
-        func: typing.Callable
-        spec: inspect.FullArgSpec
-        globals: typing.Dict[str, typing.Any]
-        locals: typing.Dict[str, typing.Any]
-        owner: typing.Optional[typing.Type]
-        name: typing.Optional[str]
-        implements: typing.Type
-        defaults: typing.Dict[str, typing.Any]
-
-        @property
-        def hints(self):
-            if isinstance(self.implements, str) and self.implements not in self.locals:
-                locals = dict(self.locals)
-                locals[self.implements] = self.owner
-            hints = typing.get_type_hints(self.func, self.globals, locals)
-            return hints
-
-    class register:
-        """Register a class, function or method to adapt arguments into something else.
-
-        >>> class Bar:
-        ...     pass
-
-        >>> @register
-        ... class Foo:
-        ...     def __init__(self, bar: Bar):
-        ...         self.bar = bar
-
-        >>>     @register
-        ...     def adapt(cls, bar: Bar) -> Foo:
-        ...         return cls(bar)
-
-        >>> @register
-        ... def adapt(bar: Bar) -> Foo:
-        ...     return Foo(bar)
-
-        """
-
-        def __new__(cls, func):
-            instance = super().__new__(cls)
-            if inspect.isclass(func):
-                instance.__init__(func)
-                return func
-            return instance
-
-        def __init__(self, func):
-            frame = inspect.currentframe().f_back.f_back
-            spec = inspect.getfullargspec(func)
-
-            implements = func if inspect.isclass(func) else spec.annotations["return"]
-
-            # all none defaults must be annotated
-            defaults = dict(
-                itertools.chain(
-                    zip(reversed(spec.args or []), reversed(spec.defaults or [])),
-                    (spec.kwonlydefaults or {}).items(),
-                )
-            )
-
-            self.adapter = Adapter(
-                func=func,
-                spec=spec,
-                globals=frame.f_globals,
-                locals=frame.f_locals,
-                owner=None,
-                name=None,
-                defaults=defaults,
-                implements=implements,
-            )
-            adapters[implements].append(self.adapter)
-
-        def __set_name__(self, owner, name):
-            frame = inspect.currentframe()
-            self.adapter.owner = owner
-            self.adapter.name = name
-            try:
-                hints = self.adapter.hints
-                self.adapter.implements = hints["return"]
-                adapters[hints["return"]].append(self.adapter)
-            except NameError:
-                pass
-
-        def __get__(self, instance, owner=None):
-            if owner is None:
-                owner = type(instance)
-            return functools.partial(self.adapter.func, owner)
-
-        def __call__(self, *args, **kwargs):
-            return self.adapter.func(*args, **kwargs)
+@pytest.mark.asyncio
+async def test_di_register():
+    from buvar import di
 
     class Bar:
-        pass
+        @di.register
+        def adapt(cls) -> Bar:
+            assert cls == Bar
+            return cls()
 
-    @register
+    @di.register
     class Foo:
         def __init__(self, bar: Bar):
             self.bar = bar
 
-        @register
+        @di.register
         def adapt(cls, bar: Bar) -> Foo:
             return cls(bar)
 
-    @register
+    @di.register
     def adapt(bar: Bar) -> Foo:
         return Foo(bar)
+
+    bar = await di.nject(Bar)
+    foo = await di.nject(Foo)
+    assert set(di.adapter.adapters) == {"Foo", Foo, "Bar", Bar}

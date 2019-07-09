@@ -2,10 +2,11 @@
 build = 'build.py'
 name = "buvar"
 version = "0.9.0"
-description = "General purpose config loader"
+description = "General purpose asyncio service loader and dependency injector"
+readme = "README.rst"
 authors = ["Oliver Berger <diefans@gmail.com>"]
 license = "Apache-2.0"
-include = ['COPYRIGHT', 'tests/*']
+include = ['COPYRIGHT', 'tests/*', 'examples/*']
 
 [tool.poetry.scripts]
 buvar = 'buvar.cli:main'

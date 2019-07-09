@@ -1,7 +1,7 @@
 [tool.poetry]
 build = 'build.py'
 name = "buvar"
-version = "0.9.0"
+version = "0.9.1"
 description = "General purpose asyncio service loader and dependency injector"
 readme = "README.rst"
 authors = ["Oliver Berger <diefans@gmail.com>"]
@@ -19,7 +19,7 @@ toml = "^0.10"
 multidict = "^4.5"
 structlog = "^19.1"
 attrs = "^19.1"
-cattrs = "^0.9.0"
+cattrs = "^0.9.1"
 typing_inspect = "^0.4.0"
 
 [tool.poetry.dev-dependencies]

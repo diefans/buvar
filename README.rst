@@ -4,7 +4,7 @@ Búvár
 objective
 ---------
 
-Basically I want something similar, what `Pyramid`_ provides, but for asyncio
+Basically I want app similar, what `Pyramid`_ provides, but for asyncio
 and for a all kinds of services.
 
 * Have a plugin system, which runs code not on import time, but on run time. So
@@ -22,7 +22,7 @@ and for a all kinds of services.
 a use case
 ----------
 
-`src/something/__main__.py`
+`src/app/__main__.py`
 
 .. code-block:: python
 
@@ -65,7 +65,7 @@ a use case
    plugin.run(*general_config.plugins, components=cmps, loop=loop)
 
 
-`src/something/user_config.toml`
+`src/app/user_config.toml`
 
 .. code-block:: toml
 
@@ -78,7 +78,7 @@ a use case
 
 
 
-`src/something/__init__.py`
+`src/app/__init__.py`
 
 .. code-block:: python
 
@@ -101,7 +101,7 @@ a use case
        app = context.get(aiohttp.web.Application)
        app.add_routes(routes)
 
-`src/something/server.py`
+`src/app/server.py`
 
 .. code-block:: python
 
@@ -152,7 +152,7 @@ a use case
 .. code-block:: bash
 
    cd src
-   APP_AIOHTTP_HOST=0.0.0.0 APP_AIOHTTP_PORT=8080 python -m something
+   APP_AIOHTTP_HOST=0.0.0.0 APP_AIOHTTP_PORT=8080 python -m app
 
 .. code-block::
 

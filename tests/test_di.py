@@ -109,3 +109,31 @@ async def test_di_register():
     bar = await di.nject(Bar)
     foo = await di.nject(Foo)
     assert set(di.adapter.adapters) == {"Foo", Foo, "Bar", Bar}
+
+
+@pytest.mark.asyncio
+async def test_readme():
+    from buvar import di
+
+    class Bar:
+        pass
+
+    class Foo:
+        def __init__(self, bar: Bar = None):
+            self.bar = bar
+
+        @di.register
+        async def adapt(cls, baz: str) -> Foo:
+            return Foo()
+
+    @di.register
+    async def adapt(bar: Bar) -> Foo:
+        foo = Foo(bar)
+        return foo
+
+    foo = await di.nject(Foo, baz="baz")
+    assert foo.bar is None
+
+    bar = Bar()
+    foo = await di.nject(Foo, bar=bar)
+    assert foo.bar is bar

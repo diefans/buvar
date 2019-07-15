@@ -13,14 +13,16 @@ async def nject(*targets, **dependencies):
     cmps = components.Components()
 
     # add default unnamed dependencies
+    # every non-default argument of the same type gets its value
+    # XXX is this good?
     for name, dep in dependencies.items():
         cmps.add(dep)
 
     # add current context
-    cmps.push(context.current_context().index)
+    cmps = cmps.new_child(context.current_context())
 
     # add default named dependencies
-    cmps.push()
+    cmps = cmps.new_child()
     for name, dep in dependencies.items():
         cmps.add(dep, name=name)
 
@@ -55,13 +57,16 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    possible_adapters = adapter.adapters.get(target) or list(
+    possible_adapters = (adapter.adapters.get(target) or []) + list(
         find_string_target_adapters(target)
     )
 
+    resolve_errors = []
     if possible_adapters is None:
         if default is missing:
-            raise adapter.ResolveError("No possible adapter found", target)
+            raise adapter.ResolveError(
+                "No possible adapter found", target, resolve_errors
+            )
         return default
 
     for adptr in possible_adapters:
@@ -75,16 +80,18 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
                 )
                 for name, dependency_target in adptr.annotations.items()
             }
-        except adapter.ResolveError:
+        except adapter.ResolveError as ex:
             # try next adapter
-            pass
+            resolve_errors.append(ex)
         else:
             component = await adptr.create(**adapter_args)
             # we do not use the name
             cmps.add(component)
             return component
     if default is missing:
-        raise adapter.ResolveError("No adapter dependencies found", target)
+        raise adapter.ResolveError(
+            "No adapter dependencies found", target, resolve_errors
+        )
     return default
 
 

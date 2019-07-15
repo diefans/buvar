@@ -1,6 +1,6 @@
 """Provide a component registry as task context."""
 import asyncio
-import functools
+import contextlib
 import sys
 
 from . import components
@@ -25,23 +25,40 @@ else:
     asyncio_current_task = asyncio.Task.current_task
 
 
-def default_components_context(parent_context=None):
-    if parent_context is None:
-        return components.Components()
-    return parent_context
+class TaskFactory:
+    def __init__(self, *, root_context=None, default=None, parent_factory=None):
+        self.default = default or self.default_components_context
+        self.factory = (
+            parent_factory if parent_factory is not None else asyncio.tasks.Task
+        )
+        self.root_context = (
+            root_context if root_context is not None else components.Components()
+        )
+
+    def default_components_context(self, parent_context=None):
+        """Context is always the same as the parents one."""
+        if parent_context:
+            return parent_context
+
+        return self.root_context
+
+    def __call__(self, loop, coro):
+        task = self.factory(loop=loop, coro=coro)
+        context = current_context(loop=loop)
+
+        setattr(task, "context", self.default(context))
+        return task
 
 
-def task_factory(loop, coro, default=None, parent_factory=None):
-    context = current_context(loop=loop)
+def set_task_factory(components, *, loop=None):  # noqa: W0621
+    if loop is None:
+        loop = asyncio.get_event_loop()
 
-    factory = parent_factory if parent_factory is not None else asyncio.tasks.Task
-    task = factory(loop=loop, coro=coro)
+    task_factory = TaskFactory(
+        root_context=components, parent_factory=loop.get_task_factory()
+    )
 
-    if default is None:
-        default = default_components_context
-
-    setattr(task, "context", default(context))
-    return task
+    loop.set_task_factory(task_factory)
 
 
 def current_context(loop=None):
@@ -66,23 +83,25 @@ def find(*args, **kwargs):
 
 
 def push():
-    context = current_context()
-    return context.push()
+    current_task = asyncio_current_task()
+    parent_context = getattr(current_task, "context", None)
+    assert parent_context is not None, "There must be a context to push from."
+
+    context = parent_context.new_child()
+    setattr(current_task, "context", context)
 
 
 def pop():
-    context = current_context()
-    return context.pop()
+    current_task = asyncio_current_task()
+    parent_context = getattr(current_task, "context", None)
+    assert parent_context is not None, "There must be a context to pop from."
+
+    context = parent_context.parents
+    setattr(current_task, "context", context)
 
 
-def set_task_factory(components, *, loop=None):  # noqa: W0621
-    if loop is None:
-        loop = asyncio.get_event_loop()
-
-    loop.set_task_factory(
-        functools.partial(
-            task_factory,
-            default=lambda _: components,
-            parent_factory=loop.get_task_factory(),
-        )
-    )
+@contextlib.contextmanager
+def child():
+    push()
+    yield
+    pop()

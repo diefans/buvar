@@ -12,8 +12,10 @@ nice to have:
 """
 import collections
 import inspect
+import structlog
 
 
+sl = structlog.get_logger()
 missing = object()
 
 
@@ -21,37 +23,10 @@ class ComponentLookupError(Exception):
     pass
 
 
-class Components:
+class Components(collections.ChainMap):
 
     """A component registry holds certain items identified by a
-    discriminator."""
-
-    __slots__ = ("index",)
-
-    def __init__(self, index=None):
-        self.index = None
-        self.push(index)
-
-    def clone(self):
-        return self.__class__(self.index)
-
-    def push(self, index=None):
-        if index is None:
-            index = {}
-        self.index = (
-            collections.ChainMap(index)
-            if self.index is None
-            else self.index.new_child(index)
-        )
-        return index
-
-    def pop(self):
-        index = self.index.maps[0]
-        self.index = self.index.parents
-        return index
-
-    def __repr__(self):
-        return self.index.__repr__()
+    namespace discriminator."""
 
     def add(self, item, namespace=None, *, name=None):
         """Register `item` and optionally name it."""
@@ -60,10 +35,10 @@ class Components:
         if namespace is None:
             namespace = type(item)
 
-        if namespace in self.index:
-            self.index[namespace][name] = item
+        if namespace in self:
+            self[namespace][name] = item
         else:
-            self.index[namespace] = {name: item}
+            self[namespace] = {name: item}
         return item
 
     def get(self, namespace, *, name=None, default=missing):
@@ -78,10 +53,6 @@ class Components:
         return item
 
     def find(self, namespace):
-        items = self._lookup(namespace)
-        return items
-
-    def _lookup(self, namespace):
         """Try to match the discriminator.
 
         If more than one component matches the discriminator, we return the
@@ -89,7 +60,7 @@ class Components:
         """
         if inspect.isclass(namespace):
             items = None
-            for key in self.index.keys():
+            for key in self.keys():
                 if inspect.isclass(key) and issubclass(key, namespace):
                     if items is None or issubclass(items, key):
                         items = key
@@ -97,4 +68,4 @@ class Components:
         else:
             items = namespace
 
-        return self.index[items]
+        return self[items]

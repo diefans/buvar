@@ -63,18 +63,14 @@ class Bootstrap:
 
     def __init__(self, *, components=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
-        self.components = components or Components()
+        self.components = components if components is not None else Components()
 
         # set task factory to serve our components context
         context.set_task_factory(self.components, loop=self.loop)
 
         # a collection of all tasks to run
-        self.collected_tasks = Tasks()
-        self.fut_running_tasks = asyncio.Future()
-        self.components.add(self.collected_tasks)
-
-        self.evt_plugins_loaded = PluginsLoaded(loop=self.loop)
-        self.components.add(self.evt_plugins_loaded)
+        self.collected_tasks = self.components.add(Tasks())
+        self.evt_plugins_loaded = self.components.add(PluginsLoaded(loop=self.loop))
 
         # schedule the main task, which waits until all plugins are loaded
         self.fut_main_task = asyncio.ensure_future(self._run_tasks(), loop=self.loop)
@@ -82,10 +78,10 @@ class Bootstrap:
             self._cancel_main_task(), loop=self.loop
         )
 
-        self.evt_cancel_main_task = CancelMainTask(loop=self.loop)
-        self.components.add(self.evt_cancel_main_task)
-        self.evt_main_task_finished = MainTaskFinished(loop=self.loop)
-        self.components.add(self.evt_main_task_finished)
+        self.evt_cancel_main_task = self.components.add(CancelMainTask(loop=self.loop))
+        self.evt_main_task_finished = self.components.add(
+            MainTaskFinished(loop=self.loop)
+        )
 
     async def _cancel_main_task(self):
         try:
@@ -124,8 +120,8 @@ class Bootstrap:
             # if a plugin raises an error, we cancel the scheduled main task
             import traceback
 
-            logger = structlog.get_logger()
-            logger.error(
+            sl = structlog.get_logger()
+            sl.error(
                 "Error while loading plugins",
                 exception=ex,
                 traceback=traceback.format_exc(),
@@ -172,7 +168,6 @@ class Bootstrap:
             )
             for task in self.collected_tasks_list
         }
-        self.fut_running_tasks.set_result(running_tasks)
         try:
             # we run until all tasks have completed
             running_tasks_results = await asyncio.shield(
@@ -198,7 +193,7 @@ class Staging:
     """Generate all stages to run an application."""
 
     def __init__(self, *plugins, components=None, loop=None):
-        self.components = components or Components()
+        self.components = components if components is not None else Components()
         self.loop = loop or asyncio.get_event_loop()
 
         # stage 1: bootstrap plugins

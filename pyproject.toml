@@ -19,8 +19,8 @@ toml = "^0.10"
 multidict = "^4.5"
 structlog = "^19.1"
 attrs = "^19.1"
-cattrs = "^0.9.1"
 typing_inspect = "^0.4.0"
+cattrs = "^0.9.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"

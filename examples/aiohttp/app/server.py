@@ -26,11 +26,20 @@ class AccessLogger(aiohttp.abc.AbstractAccessLogger):  # noqa: R0903
         )
 
 
+@aiohttp.web.middleware
+async def request_context(request, handler):
+    with context.child():
+        context.add(request)
+        return await handler(request)
+
+
 async def plugin():
     config_source = context.get(config.ConfigSource)
     aiohttp_config = config_source.load(AioHttpConfig, "aiohttp")
     aiohttp_app = context.add(
-        aiohttp.web.Application(middlewares=[aiohttp.web.normalize_path_middleware()])
+        aiohttp.web.Application(
+            middlewares=[aiohttp.web.normalize_path_middleware(), request_context]
+        )
     )
 
     sl.info("Running web server", host=aiohttp_config.host, port=aiohttp_config.port)

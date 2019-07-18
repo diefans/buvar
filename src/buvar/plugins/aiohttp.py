@@ -26,14 +26,22 @@ class AccessLogger(aiohttp.abc.AbstractAccessLogger):  # noqa: R0903
 
 async def plugin():
     config_source = context.get(config.ConfigSource)
-    aiohttp_config = config_source.load(AioHttpConfig, "aiohttp")
-    context.add(aiohttp_config)
+    aiohttp_config = context.add(config_source.load(AioHttpConfig, "aiohttp"))
 
-    aiohttp_app = aiohttp.web.Application(
-        middlewares=[aiohttp.web.normalize_path_middleware()]
+    aiohttp_app = context.add(
+        aiohttp.web.Application(middlewares=[aiohttp.web.normalize_path_middleware()])
     )
-    context.add(aiohttp_app)
+
+    aiohttp_client_session = context.add(aiohttp.client.ClientSession())
 
     yield aiohttp.web._run_app(  # noqa: W0212
         aiohttp_app, host=aiohttp_config.host, port=aiohttp_config.port, print=None
     )
+
+    async def teardown():
+        async def teardown():
+            await aiohttp_client_session.close()
+
+        yield teardown()
+
+    yield teardown()

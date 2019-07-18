@@ -88,7 +88,7 @@ async def test_di_register():
     from buvar import di
 
     class Bar:
-        @di.register
+        @di.register_classmethod
         def adapt(cls) -> Bar:
             assert cls == Bar
             return cls()
@@ -98,7 +98,7 @@ async def test_di_register():
         def __init__(self, bar: Bar):
             self.bar = bar
 
-        @di.register
+        @di.register_classmethod
         def adapt(cls, bar: Bar) -> Foo:
             return cls(bar)
 
@@ -122,7 +122,7 @@ async def test_readme():
         def __init__(self, bar: Bar = None):
             self.bar = bar
 
-        @di.register
+        @di.register_classmethod
         async def adapt(cls, baz: str) -> Foo:
             return Foo()
 

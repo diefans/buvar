@@ -21,32 +21,116 @@ def _extract_optional_type(hint):
     return hint
 
 
+def assert_annotated(spec):
+    assert set(spec.args + spec.kwonlyargs).issubset(
+        set(spec.annotations)
+    ), "An adapter must annotate all of its arguments."
+
+
+def collect_defaults(spec):
+    defaults = dict(
+        itertools.chain(
+            zip(reversed(spec.args or []), reversed(spec.defaults or [])),
+            (spec.kwonlydefaults or {}).items(),
+        )
+    )
+    return defaults
+
+
 @attr.s(auto_attribs=True)
 class Adapter:
     func: typing.Callable
     spec: inspect.FullArgSpec
-    frame: typing.Any
+    # frame: typing.Any
+    locals: typing.Dict[str, typing.Any]
+    globals: typing.Dict[str, typing.Any]
     owner: typing.Optional[typing.Type]
     name: typing.Optional[str]
     implements: typing.Type
     defaults: typing.Dict[str, typing.Any]
 
+    @classmethod
+    def from_classmethod(cls, func):
+        """Register a classmethod to adapt its arguments into its return type."""
+
+        class adapter:
+            def __init__(self, func):
+                frame = inspect.currentframe()
+                spec = inspect.getfullargspec(func)
+                # remove cls arg
+                spec.args.pop(0)
+                implements = spec.annotations["return"]
+                # all arguments must be annotated
+                assert_annotated(spec)
+
+                frame = frame.f_back.f_back.f_back
+                self.adapter = cls(
+                    func=func,
+                    spec=spec,
+                    locals=frame.f_locals,
+                    globals=frame.f_globals,
+                    owner=None,
+                    name=None,
+                    defaults=collect_defaults(spec),
+                    implements=implements,
+                )
+                adapters[implements].append(self.adapter)
+
+            def __set_name__(self, owner, name):
+                self.adapter.owner = owner
+                self.adapter.name = name
+
+                try:
+                    hints = self.adapter.hints
+                    self.adapter.implements = hints["return"]
+                    adapters[hints["return"]].append(self.adapter)
+                except NameError:
+                    pass
+
+            def __get__(self, instance, owner=None):
+                if owner is None:
+                    owner = type(instance)
+                return functools.partial(self.adapter.func, owner)
+
+        return adapter(func)
+
+    @classmethod
+    def from_func(cls, func):
+        """Register a class or function to adapt arguments either into its
+        class or return type"""
+        frame = inspect.currentframe()
+        spec = inspect.getfullargspec(func)
+        # remove self arg
+        if inspect.isclass(func):
+            spec.args.pop(0)
+            implements = func
+        else:
+            implements = spec.annotations["return"]
+        # all arguments must be annotated
+        assert_annotated(spec)
+
+        frame = frame.f_back
+        adapter = cls(
+            func=func,
+            spec=spec,
+            locals=frame.f_locals,
+            globals=frame.f_globals,
+            owner=None,
+            name=None,
+            defaults=collect_defaults(spec),
+            implements=implements,
+        )
+        adapters[implements].append(adapter)
+        return func
+
     @property
     def hints(self):
-        if inspect.isfunction(self.func):
-            if self.owner is not None:
-                frame = self.frame.f_back.f_back
-            else:
-                frame = self.frame.f_back
-        else:  # if inspect.isclass(self.func):
-            frame = self.frame.f_back.f_back
-
-        f_locals = dict(frame.f_locals)
+        f_locals = dict(self.locals)
         if isinstance(self.implements, str) and self.implements not in f_locals:
             f_locals[self.implements] = self.owner
         hints = typing.get_type_hints(
             self.func.__init__ if inspect.isclass(self.func) else self.func,
-            frame.f_globals,
+            self.globals,
             f_locals,
         )
         return hints
@@ -63,10 +147,7 @@ class Adapter:
 
     async def create(self, *args, **kwargs):
         """Create the target instance."""
-        if self.owner is not None:
-            func = functools.partial(self.func, self.owner)
-        else:
-            func = self.func
+        func = functools.partial(self.func, self.owner) if self.owner else self.func
         if inspect.iscoroutinefunction(self.func):
             adapted = await func(*args, **kwargs)
         else:

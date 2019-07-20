@@ -69,7 +69,7 @@ def test_run_server(event_loop, caplog):
     async def stop_server_on_start():
         fut_server = context.get(asyncio.Future, name="server")
         evt_server_started = context.get(asyncio.Event, name="server_started")
-        await evt_server_started.wait()
+        asyncio.wait_for(evt_server_started.wait(), 1)
         fut_server.cancel()
         await fut_server
         assert "Server stopped" in caplog.text

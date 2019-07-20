@@ -87,7 +87,7 @@ def push():
     parent_context = getattr(current_task, "context", None)
     assert parent_context is not None, "There must be a context to push from."
 
-    context = parent_context.new_child()
+    context = parent_context.push()
     setattr(current_task, "context", context)
 
 

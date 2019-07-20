@@ -1,15 +1,15 @@
 # cython: language_level=3
 from . import adapter
-from .. import components
+from ..components cimport c_components
+from ..components import c_components as components
+from buvar import context
 
 missing = object()
 
 
-async def nject(*targets, **dependencies):
-    """Resolve all dependencies and return the created component."""
-    from buvar import context
-
+cdef prepare_components(tuple targets, dict dependencies):
     # create components
+    cdef c_components.Components cmps
     cmps = components.Components()
 
     # add default unnamed dependencies
@@ -18,13 +18,22 @@ async def nject(*targets, **dependencies):
     for name, dep in dependencies.items():
         cmps.add(dep)
 
+    cdef c_components.Components current_context = context.current_context()
+
     # add current context
-    cmps = cmps.new_child(context.current_context())
+    cmps = cmps.push(*current_context.stack)
 
     # add default named dependencies
-    cmps = cmps.new_child()
+    cmps = cmps.push()
     for name, dep in dependencies.items():
         cmps.add(dep, name=name)
+
+    return cmps
+
+
+async def nject(*targets, **dependencies):
+    """Resolve all dependencies and return the created component."""
+    cmps = prepare_components(targets, dependencies)
 
     # find the proper components to instantiate that class
     injected = [
@@ -38,6 +47,7 @@ async def nject(*targets, **dependencies):
 
 def find_string_target_adapters(target):
     name = target.__name__
+    cdef list adapter_list = []
 
     # search for string and match
     string_adapters = adapter.adapters.get(name)
@@ -45,7 +55,8 @@ def find_string_target_adapters(target):
     if string_adapters:
         for adptr in string_adapters:
             if adptr.hints["return"] is target:
-                yield adptr
+                adapter_list.append(adptr)
+    return adapter_list
 
 
 async def resolve_adapter(cmps, target, *, name=None, default=missing):
@@ -57,11 +68,14 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    possible_adapters = (adapter.adapters.get(target) or []) + list(
-        find_string_target_adapters(target)
-    )
+    target_adapters = adapter.adapters.get(target)
+    cdef list possible_adapters
+    if target_adapters is not None:
+        possible_adapters = target_adapters + find_string_target_adapters(target)
+    else:
+        possible_adapters = find_string_target_adapters(target)
 
-    resolve_errors = []
+    cdef resolve_errors = []
     if possible_adapters is None:
         if default is missing:
             raise adapter.ResolveError(
@@ -95,7 +109,8 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
     return default
 
 
-def _get_name_or_default(cmps, target, name=None):
+cdef _get_name_or_default(c_components.Components cmps, object target, name=None):
+    cdef object component
     # find in components
     if name is not None:
         try:

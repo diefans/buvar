@@ -1,5 +1,5 @@
 from . import adapter
-from .. import components
+from ..components import py_components as components
 
 missing = object()
 
@@ -18,10 +18,10 @@ async def nject(*targets, **dependencies):
         cmps.add(dep)
 
     # add current context
-    cmps = cmps.new_child(context.current_context())
+    cmps = cmps.push(*context.current_context().stack)
 
     # add default named dependencies
-    cmps = cmps.new_child()
+    cmps = cmps.push()
     for name, dep in dependencies.items():
         cmps.add(dep, name=name)
 
@@ -37,6 +37,7 @@ async def nject(*targets, **dependencies):
 
 def find_string_target_adapters(target):
     name = target.__name__
+    adapter_list = []
 
     # search for string and match
     string_adapters = adapter.adapters.get(name)
@@ -44,7 +45,8 @@ def find_string_target_adapters(target):
     if string_adapters:
         for adptr in string_adapters:
             if adptr.hints["return"] is target:
-                yield adptr
+                adapter_list.append(adptr)
+    return adapter_list
 
 
 async def resolve_adapter(cmps, target, *, name=None, default=missing):
@@ -56,9 +58,9 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    possible_adapters = (adapter.adapters.get(target) or []) + list(
-        find_string_target_adapters(target)
-    )
+    possible_adapters = (
+        adapter.adapters.get(target) or []
+    ) + find_string_target_adapters(target)
 
     resolve_errors = []
     if possible_adapters is None:

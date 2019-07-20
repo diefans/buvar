@@ -1,2 +1,5 @@
-src/buvar/di/c_resolve.c
-src/buvar/di/c_resolve.cpython-37m-x86_64-linux-gnu.so
+# we only distribute source
+c_resolve.c
+c_resolve.*.so
+c_components.c
+c_components.*.so

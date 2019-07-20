@@ -19,26 +19,8 @@ def event_loop(event_loop):
     return event_loop
 
 
-@pytest.fixture(params=["resolve", "c_resolve"])
-def nject(request, mocker):
-    if request.param == "resolve":
-        from buvar.di import resolve
-
-        mocker.patch("buvar.di.nject", resolve.nject)
-        yield resolve.nject
-    else:
-        try:
-            from buvar.di import c_resolve as resolve
-
-            mocker.patch("buvar.di.nject", resolve.nject)
-            yield resolve.nject  # noqa: I1101
-        except ImportError:
-            pytest.skip(f"C extension {request.param} not available.")
-            return
-
-
 @pytest.mark.asyncio
-async def test_di_nject(nject):
+async def test_di_nject():
     from buvar import context, di
 
     class Foo(dict):
@@ -70,7 +52,7 @@ async def test_di_nject(nject):
     context.add(Foo())
     context.add(Foo(name="bar"), name="bar")
 
-    baz, bum = await nject(Baz, Bum, bum=Bum())
+    baz, bum = await di.nject(Baz, Bum, bum=Bum())
     assert isinstance(baz, Baz)
     assert baz == {
         "baz": True,

@@ -7,7 +7,7 @@ import pytest
 def mock_adapters(mocker):
     import collections
 
-    mocker.patch("buvar.di.adapter.adapters", collections.defaultdict(list))
+    mocker.patch("buvar.di.adapters", collections.defaultdict(list))
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ async def test_di_nject():
         def __init__(self, name=None):
             super().__init__(name=name, foo=True)
 
-    @di.register
+    @di.adapter
     class Bar(dict):
         def __init__(self, bar: Foo):
             super().__init__(foo=bar, bar=True)
@@ -43,7 +43,7 @@ async def test_di_nject():
         def __init__(self):
             super().__init__(bum=True)
 
-    @di.register
+    @di.adapter
     async def baz_adapter(
         bar: Bar, bam: Foo = 1, bim: Bim = "default", *, bum: Bum, foo: Foo = None
     ) -> Baz:
@@ -66,31 +66,31 @@ async def test_di_nject():
 
 
 @pytest.mark.asyncio
-async def test_di_register():
+async def test_di_adapter():
     from buvar import di
 
     class Bar:
-        @di.register_classmethod
+        @di.adapter_classmethod
         def adapt(cls) -> Bar:
             assert cls == Bar
             return cls()
 
-    @di.register
+    @di.adapter
     class Foo:
         def __init__(self, bar: Bar):
             self.bar = bar
 
-        @di.register_classmethod
+        @di.adapter_classmethod
         def adapt(cls, bar: Bar) -> Foo:
             return cls(bar)
 
-    @di.register
+    @di.adapter
     def adapt(bar: Bar) -> Foo:
         return Foo(bar)
 
     bar = await di.nject(Bar)
     foo = await di.nject(Foo)
-    assert set(di.adapter.adapters) == {"Foo", Foo, "Bar", Bar}
+    assert set(di.adapters) == {"Foo", Foo, "Bar", Bar}
 
 
 @pytest.mark.asyncio
@@ -104,11 +104,11 @@ async def test_readme():
         def __init__(self, bar: Bar = None):
             self.bar = bar
 
-        @di.register_classmethod
+        @di.adapter_classmethod
         async def adapt(cls, baz: str) -> Foo:
             return Foo()
 
-    @di.register
+    @di.adapter
     async def adapt(bar: Bar) -> Foo:
         foo = Foo(bar)
         return foo

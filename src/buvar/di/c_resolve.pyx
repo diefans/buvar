@@ -1,8 +1,9 @@
 # cython: language_level=3
-from . import adapter
 from ..components cimport c_components
-from ..components import c_components as components
 from buvar import context
+
+from .. import di
+from ..components import c_components as components
 
 missing = object()
 
@@ -50,7 +51,7 @@ def find_string_target_adapters(target):
     cdef list adapter_list = []
 
     # search for string and match
-    string_adapters = adapter.adapters.get(name)
+    string_adapters = di.adapters.get(name)
     # find target name in string adapter types and find target in adapter
     if string_adapters:
         for adptr in string_adapters:
@@ -68,7 +69,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
         pass
 
     # try to adapt
-    target_adapters = adapter.adapters.get(target)
+    target_adapters = di.adapters.get(target)
     cdef list possible_adapters
     if target_adapters is not None:
         possible_adapters = target_adapters + find_string_target_adapters(target)
@@ -78,7 +79,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
     cdef resolve_errors = []
     if possible_adapters is None:
         if default is missing:
-            raise adapter.ResolveError(
+            raise di.ResolveError(
                 "No possible adapter found", target, resolve_errors
             )
         return default
@@ -94,7 +95,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
                 )
                 for name, dependency_target in adptr.annotations.items()
             }
-        except adapter.ResolveError as ex:
+        except di.ResolveError as ex:
             # try next adapter
             resolve_errors.append(ex)
         else:
@@ -103,7 +104,7 @@ async def resolve_adapter(cmps, target, *, name=None, default=missing):
             cmps.add(component)
             return component
     if default is missing:
-        raise adapter.ResolveError(
+        raise di.ResolveError(
             "No adapter dependencies found", target, resolve_errors
         )
     return default

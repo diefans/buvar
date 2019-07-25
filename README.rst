@@ -60,11 +60,11 @@ business problem. I want a non-verbose lookup to those.
       def __init__(self, bar: Bar = None):
          self.bar = bar
 
-      @di.register
+      @di.adapter_classmethod
       async def adapt(cls, baz: str) -> Foo:
          return Foo()
 
-   @di.register
+   @di.adapter
    async def adapt(bar: Bar) -> Foo
       foo = Foo(bar)
       return foo

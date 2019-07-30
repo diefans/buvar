@@ -5,7 +5,7 @@ import itertools
 import sys
 import typing
 
-import typing_inspect
+# import typing_inspect
 
 from buvar import context
 
@@ -20,10 +20,23 @@ class ResolveError(Exception):
 
 
 def _extract_optional_type(hint):
-    if typing_inspect.is_optional_type(hint):
-        hint, _ = typing_inspect.get_args(hint)
-        return hint
+    none = type(None)
+    if (
+        hint is typing.Union
+        or isinstance(hint, typing._GenericAlias)
+        and hint.__origin__ is typing.Union
+    ):
+        if none in hint.__args__ and len(hint.__args__) == 2:
+            for h in hint.__args__:
+                if h is not none:
+                    return h
     return hint
+
+    # if typing_inspect.is_optional_type(hint):
+    #     __import__("pdb").set_trace()  # XXX BREAKPOINT
+    #     hint, _ = typing_inspect.get_args(hint)
+    #     return hint
+    # return hint
 
 
 def assert_annotated(spec):

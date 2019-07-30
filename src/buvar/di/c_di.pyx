@@ -1,5 +1,5 @@
 # cython: language_level=3
-from ..components cimport c_components as components
+from ..components.c_components cimport Components, ComponentLookupError
 
 import sys
 import collections
@@ -8,12 +8,11 @@ import inspect
 import itertools
 import typing
 
-import typing_inspect
+# import typing_inspect
 
 from buvar import context
 
 from .. import util
-# from ..components import c_components as components
 
 missing = object()
 
@@ -23,10 +22,21 @@ class ResolveError(Exception):
 
 
 def _extract_optional_type(hint):
-    if typing_inspect.is_optional_type(hint):
-        hint, _ = typing_inspect.get_args(hint)
-        return hint
+    none = type(None)
+    if (
+        hint is typing.Union
+        or isinstance(hint, typing._GenericAlias)
+        and hint.__origin__ is typing.Union
+    ):
+        if none in hint.__args__ and len(hint.__args__) == 2:
+            for h in hint.__args__:
+                if h is not none:
+                    return h
     return hint
+    # if typing_inspect.is_optional_type(hint):
+    #     hint, _ = typing_inspect.get_args(hint)
+    #     return hint
+    # return hint
 
 
 def assert_annotated(spec):
@@ -45,7 +55,17 @@ def collect_defaults(spec):
     return defaults
 
 
-class Adapter:
+cdef class Adapter:
+    cdef func
+    cdef list args
+    cdef dict locals
+    cdef dict globals
+    cdef owner
+    cdef name
+    cdef object implements
+    cdef dict defaults
+    cdef _annotations
+
     def __init__(
         self,
         func,
@@ -65,28 +85,35 @@ class Adapter:
         self.name = name
         self.implements = implements
         self.defaults = defaults
+        self._annotations = None
 
-    def get_hints(self):
+    cdef get_hints(self):
         f_locals = dict(self.locals)
         if isinstance(self.implements, str) and self.implements not in f_locals:
             f_locals[self.implements] = self.owner
         hints = typing.get_type_hints(
-            self.func.__init__ if inspect.isclass(self.func) else self.func,
+            self.func.__init__ if isinstance(self.func, type) else self.func,
             self.globals,
             f_locals,
         )
 
         return hints
 
-    @util.reify
-    def annotations(self):
-        hints = self.get_hints()
-        annotations = {
+    cdef __annotations(self):
+        if self._annotations is not None:
+            return self._annotations
+
+        cdef dict hints = self.get_hints()
+        self._annotations = {
             arg: _extract_optional_type(hints[arg])
             for arg in self.args
         }
 
-        return annotations
+        return self._annotations
+
+    @property
+    def annotations(self):
+        return self.__annotations()
 
     async def create(self, *args, **kwargs):
         """Create the target instance."""
@@ -100,7 +127,7 @@ class Adapter:
 
 cdef prepare_components(tuple targets, dict dependencies):
     # create components
-    cdef components.Components cmps = components.Components()
+    cdef Components cmps = Components()
 
     # add default unnamed dependencies
     # every non-default argument of the same type gets its value
@@ -108,7 +135,7 @@ cdef prepare_components(tuple targets, dict dependencies):
     for name, dep in dependencies.items():
         cmps.add(dep)
 
-    cdef components.Components current_context = context.current_context()
+    cdef Components current_context = context.current_context()
 
     # add current context
     cmps = cmps.push(*current_context.stack)
@@ -121,6 +148,51 @@ cdef prepare_components(tuple targets, dict dependencies):
     return cmps
 
 
+cdef class _adapter:
+    cdef Adapters adapters
+    cdef Adapter adapter
+
+    def __init__(self, func, adapters):
+        self.adapters = adapters
+        frame = sys._getframe(1)
+        spec = inspect.getfullargspec(func)
+        # remove cls arg
+        spec.args.pop(0)
+        implements = spec.annotations["return"]
+        # all arguments must be annotated
+        assert_annotated(spec)
+
+        args = spec.args + spec.kwonlyargs
+
+        self.adapter = Adapter(
+            func=func,
+            args=args,
+            locals=frame.f_locals,
+            globals=frame.f_globals,
+            owner=None,
+            name=None,
+            defaults=collect_defaults(spec),
+            implements=implements,
+        )
+        adapters.add(implements, self.adapter)
+
+    def __set_name__(self, owner, name):
+        self.adapter.owner = owner
+        self.adapter.name = name
+
+        try:
+            hints = self.adapter.get_hints()
+            self.adapter.implements = hints["return"]
+            self.adapters.add(hints["return"], self.adapter)
+        except NameError:
+            pass
+
+    def __get__(self, instance, owner):
+        if owner is None:
+            owner = type(instance)
+        return functools.partial(self.adapter.func, owner)
+
+
 cdef class Adapters:
     cdef dict _index
     def __init__(self):
@@ -130,56 +202,18 @@ cdef class Adapters:
     def index(self):
         return self._index
 
-    cpdef add(self, target, adapter):
+    cdef _add(self, target, adapter):
         if target in self._index:
             self._index[target].append(adapter)
         else:
             self._index[target] = [adapter]
 
+    def add(self, target, adapter):
+        self._add(target, adapter)
+
     def adapter_classmethod(self, func):
         """Register a classmethod to adapt its arguments into its return type."""
-
-        class adapter:
-            def __init__(deco, func):
-                frame = sys._getframe(1)
-                spec = inspect.getfullargspec(func)
-                # remove cls arg
-                spec.args.pop(0)
-                implements = spec.annotations["return"]
-                # all arguments must be annotated
-                assert_annotated(spec)
-
-                args = spec.args + spec.kwonlyargs
-
-                deco.adapter = Adapter(
-                    func=func,
-                    args=args,
-                    locals=frame.f_locals,
-                    globals=frame.f_globals,
-                    owner=None,
-                    name=None,
-                    defaults=collect_defaults(spec),
-                    implements=implements,
-                )
-                self.add(implements, deco.adapter)
-
-            def __set_name__(deco, owner, name):
-                deco.adapter.owner = owner
-                deco.adapter.name = name
-
-                try:
-                    hints = deco.adapter.get_hints()
-                    deco.adapter.implements = hints["return"]
-                    self.add(hints["return"], deco.adapter)
-                except NameError:
-                    pass
-
-            def __get__(deco, instance, owner=None):
-                if owner is None:
-                    owner = type(instance)
-                return functools.partial(deco.adapter.func, owner)
-
-        return adapter(func)
+        return _adapter(func, self)
 
     def adapter(self, func):
         """Register a class or function to adapt arguments either into its
@@ -187,7 +221,7 @@ cdef class Adapters:
         frame = sys._getframe(0)
         spec = inspect.getfullargspec(func)
         # remove self arg
-        if inspect.isclass(func):
+        if isinstance(func, type):
             spec.args.pop(0)
             implements = func
         else:
@@ -211,12 +245,13 @@ cdef class Adapters:
 
     async def nject(self, *targets, **dependencies):
         """Resolve all dependencies and return the created component."""
+        cdef tuple _targets = targets
 
         # create components
-        cmps = prepare_components(targets, dependencies)
+        cdef Components cmps = prepare_components(_targets, dependencies)
 
         # find the proper components to instantiate that class
-        injected = [
+        cdef list injected = [
             await self.resolve_adapter(cmps, target, name=name)
             for name, target in ((None, target) for target in targets)
         ]
@@ -224,12 +259,13 @@ cdef class Adapters:
             return injected[0]
         return injected
 
-    def find_string_target_adapters(self, target):
-        name = target.__name__
-        adapter_list = []
+    def find_string_target_adapters(self, type target):
+        cdef str name = target.__name__
+        cdef list adapter_list = []
 
         # search for string and match
-        string_adapters = self._index.get(name)
+        cdef list string_adapters = self._index.get(name)
+        cdef Adapter adptr
         # find target name in string adapter types and find target in adapter
         if string_adapters:
             for adptr in string_adapters:
@@ -238,25 +274,27 @@ cdef class Adapters:
                     adapter_list.append(adptr)
         return adapter_list
 
-    async def resolve_adapter(self, cmps, target, *, name=None, default=missing):
+    async def resolve_adapter(self, Components cmps, object target, *, name=None, default=missing):
+        cdef object component
         # find in components
         try:
             component = _get_name_or_default(cmps, target, name)
             return component
-        except components.ComponentLookupError:
+        except ComponentLookupError:
             pass
 
         # try to adapt
-        possible_adapters = (
+        cdef list possible_adapters = (
             self._index.get(target) or []
         ) + self.find_string_target_adapters(target)
 
-        resolve_errors = []
+        cdef list resolve_errors = []
         if possible_adapters is None:
             if default is missing:
                 raise ResolveError("No possible adapter found", target, resolve_errors)
             return default
-
+        cdef Adapter adptr
+        cdef dict adapter_args
         for adptr in possible_adapters:
             try:
                 adapter_args = {
@@ -281,13 +319,13 @@ cdef class Adapters:
         return default
 
 
-cdef _get_name_or_default(components.Components cmps, object target, name=None):
+cdef _get_name_or_default(Components cmps, object target, name=None):
     # find in components
     if name is not None:
         try:
             component = cmps.get(target, name=name)
             return component
-        except components.ComponentLookupError:
+        except ComponentLookupError:
             pass
 
     component = cmps.get(target, name=None)

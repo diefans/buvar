@@ -15,20 +15,18 @@ def setup_logging():
 def implementation(request, mocker):
     # we run every test with cython and python
     if request.param == "python":
-        from buvar.di import resolve
+        from buvar.di import py_di
         from buvar.components import py_components
 
-        mocker.patch("buvar.di.nject", resolve.nject)
+        mocker.patch("buvar.di.Adapters", py_di.Adapters)
         mocker.patch("buvar.components.Components", py_components.Components)
-        yield resolve.nject
     else:
         try:
-            from buvar.di import c_resolve as resolve
+            from buvar.di import c_di
             from buvar.components import c_components
 
-            mocker.patch("buvar.di.nject", resolve.nject)
+            mocker.patch("buvar.di.Adapters", c_di.Adapters)
             mocker.patch("buvar.components.Components", c_components.Components)
-            yield resolve.nject  # noqa: I1101
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
             return

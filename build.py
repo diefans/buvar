@@ -10,10 +10,7 @@ def build(setup_kwargs):
         pass
     else:
         # use cythonize to build the extensions
-        modules = [
-            "src/buvar/di/c_resolve.pyx",
-            "src/buvar/components/c_components.pyx",
-        ]
+        modules = ["src/buvar/di/c_di.pyx", "src/buvar/components/c_components.pyx"]
 
         extensions = cythonize(modules)
         setup_kwargs.update({"ext_modules": extensions, "include_dirs": []})

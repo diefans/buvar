@@ -11,7 +11,7 @@ import itertools
 missing = object()
 
 
-class ComponentLookupError(Exception):
+cdef class ComponentLookupError(Exception):
     pass
 
 

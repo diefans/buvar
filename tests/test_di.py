@@ -3,13 +3,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def mock_adapters(mocker):
-    import collections
-
-    mocker.patch("buvar.di.adapters", collections.defaultdict(list))
-
-
 @pytest.fixture
 def event_loop(event_loop):
     from buvar import context, components
@@ -19,15 +12,17 @@ def event_loop(event_loop):
     return event_loop
 
 
-@pytest.mark.asyncio
-async def test_di_nject():
+@pytest.mark.benchmark(group="nject")
+def test_di_nject(event_loop, benchmark):
     from buvar import context, di
+
+    adapters = di.Adapters()
 
     class Foo(dict):
         def __init__(self, name=None):
             super().__init__(name=name, foo=True)
 
-    @di.adapter
+    @adapters.adapter
     class Bar(dict):
         def __init__(self, bar: Foo):
             super().__init__(foo=bar, bar=True)
@@ -43,59 +38,69 @@ async def test_di_nject():
         def __init__(self):
             super().__init__(bum=True)
 
-    @di.adapter
+    @adapters.adapter
     async def baz_adapter(
         bar: Bar, bam: Foo = 1, bim: Bim = "default", *, bum: Bum, foo: Foo = None
     ) -> Baz:
         return Baz(foo=foo, bam=bam, bim=bim, bar=bar, bum=bum)
 
-    context.add(Foo())
-    context.add(Foo(name="bar"), name="bar")
+    async def test():
+        context.add(Foo())
+        context.add(Foo(name="bar"), name="bar")
 
-    baz, bum = await di.nject(Baz, Bum, bum=Bum())
-    assert isinstance(baz, Baz)
-    assert baz == {
-        "baz": True,
-        "bam": {"foo": True, "name": None},
-        "foo": {"foo": True, "name": None},
-        "bim": "default",
-        "bum": {"bum": True},
-        "bar": {"bar": True, "foo": {"foo": True, "name": "bar"}},
-    }
-    assert bum == {"bum": True}
+        baz, bum = await adapters.nject(Baz, Bum, bum=Bum())
+        assert isinstance(baz, Baz)
+        assert baz == {
+            "baz": True,
+            "bam": {"foo": True, "name": None},
+            "foo": {"foo": True, "name": None},
+            "bim": "default",
+            "bum": {"bum": True},
+            "bar": {"bar": True, "foo": {"foo": True, "name": "bar"}},
+        }
+        assert bum == {"bum": True}
+
+    def bench():
+        event_loop.run_until_complete(test())
+
+    benchmark(bench)
 
 
 @pytest.mark.asyncio
 async def test_di_adapter():
     from buvar import di
 
+    adapters = di.Adapters()
+
     class Bar:
-        @di.adapter_classmethod
+        @adapters.adapter_classmethod
         def adapt(cls) -> Bar:
             assert cls == Bar
             return cls()
 
-    @di.adapter
+    @adapters.adapter
     class Foo:
         def __init__(self, bar: Bar):
             self.bar = bar
 
-        @di.adapter_classmethod
+        @adapters.adapter_classmethod
         def adapt(cls, bar: Bar) -> Foo:
             return cls(bar)
 
-    @di.adapter
+    @adapters.adapter
     def adapt(bar: Bar) -> Foo:
         return Foo(bar)
 
-    bar = await di.nject(Bar)
-    foo = await di.nject(Foo)
-    assert set(di.adapters) == {"Foo", Foo, "Bar", Bar}
+    bar = await adapters.nject(Bar)
+    foo = await adapters.nject(Foo)
+    assert set(adapters.index) == {"Foo", Foo, "Bar", Bar}
 
 
-@pytest.mark.asyncio
-async def test_readme():
+@pytest.mark.benchmark(group="readme")
+def test_readme(event_loop, benchmark):
     from buvar import di
+
+    adapters = di.Adapters()
 
     class Bar:
         pass
@@ -104,18 +109,24 @@ async def test_readme():
         def __init__(self, bar: Bar = None):
             self.bar = bar
 
-        @di.adapter_classmethod
-        async def adapt(cls, baz: str) -> Foo:
+        @adapters.adapter_classmethod
+        async def adapt_classmethod(cls, baz: str) -> Foo:
             return Foo()
 
-    @di.adapter
+    @adapters.adapter
     async def adapt(bar: Bar) -> Foo:
         foo = Foo(bar)
         return foo
 
-    foo = await di.nject(Foo, baz="baz")
-    assert foo.bar is None
+    async def test():
+        foo = await adapters.nject(Foo, baz="baz")
+        assert foo.bar is None
 
-    bar = Bar()
-    foo = await di.nject(Foo, bar=bar)
-    assert foo.bar is bar
+        bar = Bar()
+        foo = await adapters.nject(Foo, bar=bar)
+        assert foo.bar is bar
+
+    def bench():
+        event_loop.run_until_complete(test())
+
+    benchmark(bench)

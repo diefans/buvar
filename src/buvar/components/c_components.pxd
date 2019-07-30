@@ -1,4 +1,7 @@
 # cython: language_level=3
+cdef class ComponentLookupError(Exception):
+    pass
+
 cdef class Components:
     cdef dict namespaces
     cpdef list stack

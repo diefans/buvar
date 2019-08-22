@@ -1,7 +1,8 @@
 import pytest
 
 
-def test_lookup_mro():
+@pytest.mark.benchmark(group="get")
+def test_components_get(benchmark):
     from buvar import components
 
     class Foo:
@@ -20,12 +21,15 @@ def test_lookup_mro():
     c.add(foo)
     c.add(baz)
 
-    assert c.get(Bar) == baz
-    assert c.get(Foo) == foo
-    assert c.get(Baz) == baz
+    def test():
+        assert c.get(Bar) == baz
+        assert c.get(Foo) == baz
+        assert c.get(Baz) == baz
+
+    benchmark(test)
 
 
-def test_lookup_basic():
+def test_components_get_basic():
     from buvar import components
 
     c = components.Components()
@@ -35,7 +39,7 @@ def test_lookup_basic():
     assert c.get("bar") == "foo"
 
 
-def test_no_instance():
+def test_components_no_instance():
     from buvar import components
 
     c = components.Components()
@@ -47,7 +51,7 @@ def test_no_instance():
         c.add(Foo)
 
 
-def test_deep_find():
+def test_components_deep_find():
     from buvar import components
 
     c = components.Components()

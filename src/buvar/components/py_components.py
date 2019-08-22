@@ -38,11 +38,18 @@ class Components:
         if namespace is None:
             namespace = type(item)
 
-        if namespace in self.namespaces:
-            self.namespaces[namespace][name] = item
+        if isinstance(namespace, type):
+            mro = namespace.__mro__
         else:
-            space = {name: item}
-            self.namespaces[namespace] = space
+            mro = [namespace]
+
+        # we add the whole MRO to have a fast lookup later
+        for namespace in mro:
+            if namespace in self.namespaces:
+                self.namespaces[namespace][name] = item
+            else:
+                space = {name: item}
+                self.namespaces[namespace] = space
         return item
 
     def push(self, namespaces=None, *stack):
@@ -57,52 +64,29 @@ class Components:
     def pop(self):
         return self.__class__(*self.stack[1:])
 
-    def upstream(self, target=missing, name=missing):
-        spaces = {}
-
-        target_is_class = isinstance(target, type)
-        for namespaces in self.stack[::-1]:
-            for namespace, space in namespaces.items():
-                if target is not missing:
-                    if target_is_class and isinstance(namespace, type):
-                        if not issubclass(namespace, target):
-                            continue
-                    elif target != namespace:
-                        continue
-
-                if namespace in spaces:
-                    if name is missing:
-                        spaces[namespace].update(space)
-                    elif name in space:
-                        spaces[namespace][name] = space[name]
-                else:
-                    if name is missing:
-                        merged = dict(space)
-                    elif name in space:
-                        merged = {name: space[name]}
-                    else:
-                        # XXX name not in space
-                        continue
-
-                    spaces[namespace] = merged
-        return spaces
-
     def find(self, namespace):
         merged = {}
-        spaces = self.upstream(target=namespace)
-        # sort after mro
-        if isinstance(namespace, type):
-            for cls in (namespace,) + namespace.__mro__[::-1]:
-                for key in spaces:
-                    if issubclass(key, cls):
-                        merged.update(spaces[key])
-                        # stop if we found something
-                        break
-        else:
-            merged.update(spaces[namespace])
+        for namespaces in self.stack[::-1]:
+            try:
+                space = namespaces[namespace]
+                merged.update(space)
+            except KeyError:
+                pass
         return merged
 
     def get(self, namespace, *, name=None, default=missing):
+        for namespaces in self.stack:
+            try:
+                item = namespaces[namespace][name]
+                return item
+            except KeyError:
+                pass
+
+        if default is missing:
+            raise ComponentLookupError("Component not found", namespace, name, default)
+        return default
+
+    def oldget(self, namespace, *, name=None, default=missing):
         spaces = self.upstream(target=namespace, name=name)
         # sort after mro
         for key in spaces:

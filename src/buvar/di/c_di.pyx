@@ -21,7 +21,7 @@ class ResolveError(Exception):
     pass
 
 
-def _extract_optional_type(hint):
+cdef _extract_optional_type(hint):
     none = type(None)
     if (
         hint is typing.Union
@@ -240,7 +240,7 @@ cdef class Adapters:
             defaults=collect_defaults(spec),
             implements=implements,
         )
-        self.add(implements, adapter)
+        self._add(implements, adapter)
         return func
 
     async def nject(self, *targets, **dependencies):
@@ -259,7 +259,7 @@ cdef class Adapters:
             return injected[0]
         return injected
 
-    def find_string_target_adapters(self, type target):
+    cdef _find_string_target_adapters(self, type target):
         cdef str name = target.__name__
         cdef list adapter_list = []
 
@@ -286,7 +286,7 @@ cdef class Adapters:
         # try to adapt
         cdef list possible_adapters = (
             self._index.get(target) or []
-        ) + self.find_string_target_adapters(target)
+        ) + self._find_string_target_adapters(target)
 
         cdef list resolve_errors = []
         if possible_adapters is None:
@@ -312,7 +312,7 @@ cdef class Adapters:
             else:
                 component = await adptr.create(**adapter_args)
                 # we do not use the name
-                cmps.add(component)
+                cmps._add(component)
                 return component
         if default is missing:
             raise ResolveError("No adapter dependencies found", target, resolve_errors)
@@ -323,10 +323,10 @@ cdef _get_name_or_default(Components cmps, object target, name=None):
     # find in components
     if name is not None:
         try:
-            component = cmps.get(target, name=name)
+            component = cmps._get(target, name=name)
             return component
         except ComponentLookupError:
             pass
 
-    component = cmps.get(target, name=None)
+    component = cmps._get(target, name=None)
     return component

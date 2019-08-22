@@ -212,7 +212,7 @@ class Adapters:
             return injected[0]
         return injected
 
-    def find_string_target_adapters(self, target):
+    def _find_string_target_adapters(self, target):
         name = target.__name__
         adapter_list = []
 
@@ -237,7 +237,7 @@ class Adapters:
         # try to adapt
         possible_adapters = (
             self.index.get(target) or []
-        ) + self.find_string_target_adapters(target)
+        ) + self._find_string_target_adapters(target)
 
         resolve_errors = []
         if possible_adapters is None:

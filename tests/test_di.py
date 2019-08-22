@@ -13,28 +13,6 @@ def event_loop(event_loop):
 
 
 @pytest.mark.benchmark(group="nject")
-def test_di_benchmark_empty_async(event_loop, benchmark):
-    from buvar import context
-
-    class Foo(dict):
-        def __init__(self, name=None):
-            super().__init__(name=name, foo=True)
-
-    class Bar(dict):
-        def __init__(self, bar: Foo):
-            super().__init__(foo=bar, bar=True)
-
-    async def test():
-        context.add(Foo())
-        context.add(Foo(name="bar"), name="bar")
-
-    def bench():
-        event_loop.run_until_complete(test())
-
-    benchmark(bench)
-
-
-@pytest.mark.benchmark(group="nject")
 def test_di_nject(event_loop, benchmark):
     from buvar import context, di
 

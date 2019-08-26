@@ -29,8 +29,8 @@ def var(
     factory=missing,
     name=None,
     validator=None,
-    help=None,
-):  # noqa: W0622
+    help=None,  # noqa: W0622,
+):
     return attr.ib(
         metadata={CNF_KEY: ConfigValue(name, help)},
         converter=converter,
@@ -65,12 +65,6 @@ def bool_var(default=missing, name=None, help=None):  # noqa: W0622
 
 def list_var(default=missing, name=None, help=None):  # noqa: W0622
     return var(default=default, name=name, converter=_env_to_list, help=help)
-
-
-@attr.s(auto_attribs=True)
-class BuvarConfig:
-    log_level: str = var(help="The log level to set")
-    include: typing.List[str] = list_var(help="A list of plugins to include")
 
 
 class ConfigSource(dict):
@@ -144,7 +138,11 @@ def isunion(hint):
 
 
 def isoptional(hint):
-    return isunion(hint) and len(hint.__args__) == 2 and type(None) in hint.__args__
+    return (
+        isunion(hint)
+        and len(hint.__args__) == 2
+        and type(None) in hint.__args__  # noqa: C0123
+    )
 
 
 def optional_type(hint):

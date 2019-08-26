@@ -104,9 +104,6 @@ def test_cancel_main_task(event_loop):
         evt_cancel_main_task = cmps.get(plugin.CancelMainTask)
 
         async def server():
-            async def teardown():
-                state["teardown"] = True
-
             try:
                 state["server"] = True
                 evt_cancel_main_task.set()
@@ -115,8 +112,6 @@ def test_cancel_main_task(event_loop):
                 assert True
             else:
                 assert False
-
-            yield teardown()
 
         yield server()
 
@@ -130,7 +125,7 @@ def test_cancel_main_task(event_loop):
         # yield wait_for_plugins_loaded()
 
     plugin.run(server_plugin, components=cmps, loop=event_loop)
-    assert state == {"teardown": True, "server": True}
+    assert state == {"server": True}
 
 
 def test_resolve_dotted_name():
@@ -162,8 +157,8 @@ def test_resolve_plugin_not_async(event_loop):
         plugin.resolve_plugin(lambda: None)
 
 
-def test_teardown(event_loop):
-    from buvar import plugin, components
+def test_subtask(event_loop):
+    from buvar import plugin, components, context
 
     cmps = components.Components()
 
@@ -172,36 +167,17 @@ def test_teardown(event_loop):
     async def test_plugin():
         state["plugin"] = True
 
+        async def teardown_task():
+            state["teardown_task"] = True
+
+        teardown = context.get(plugin.Teardown)
+        teardown.add(teardown_task())
+
         async def task():
             state["task"] = True
 
-            async def teardown():
-                state["teardown"] = True
-
-            return teardown()
-
-        async def task2():
-            async def teardown2():
-                state["teardown2"] = True
-
-            yield teardown2()
-
-        async def task3():
-            async def teardown3():
-                state["teardown3"] = True
-
-            return [teardown3()]
-
         yield task()
-        yield task2()
-        yield task3()
 
     plugin.run(test_plugin, components=cmps, loop=event_loop)
 
-    assert state == {
-        "plugin": True,
-        "task": True,
-        "teardown": True,
-        "teardown2": True,
-        "teardown3": True,
-    }
+    assert state == {"plugin": True, "task": True, "teardown_task": True}

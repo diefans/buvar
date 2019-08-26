@@ -2,11 +2,10 @@
 
     >>> components = Components()
     >>> loop = asyncio.get_event_loop()
+    >>> state = {}
     >>> async def plugin(load):
     ...     async def some_task():
-    ...         async def teardown():
-    ...             pass
-    ...         yield teardown()
+    ...         state['task'] = True
     ...     yield some_task()
 
 
@@ -15,10 +14,12 @@
     >>> load(plugin)
 
     >>> # wait for main task to finish
-    >>> teardown_tasks = next(stages)
+    >>> tasks_results = next(stages)
 
     >>> # finsh
-    >>> next(stages)
+    >>> next(stages, None)
+
+    >>> assert state == {'task': True}
 
 
     >>> stages = Staging(plugin, components=components, loop=loop)
@@ -162,31 +163,44 @@ class Bootstrap:
 
         # run all tasks together
         # we send them into background and gather their results
-        running_tasks = {
-            asyncio.ensure_future(
-                async_gen_to_list(task) if inspect.isasyncgen(task) else task
-            )
+        tasks = {
+            asyncio.ensure_future(async_gen_to_list(task), loop=self.loop)
             for task in self.collected_tasks_list
         }
+
         try:
             # we run until all tasks have completed
-            running_tasks_results = await asyncio.shield(
-                asyncio.gather(*running_tasks, return_exceptions=True, loop=self.loop)
+            tasks_results = await asyncio.shield(
+                asyncio.gather(*tasks, return_exceptions=True, loop=self.loop),
+                loop=self.loop,
             )
         except asyncio.CancelledError:
             # stop all tasks
-            for task in running_tasks:
+            for task in tasks:
                 if not task.done():
                     task.cancel()
-            running_tasks_results = await asyncio.gather(
-                *running_tasks, return_exceptions=True, loop=self.loop
+            tasks_results = await asyncio.gather(
+                *tasks, return_exceptions=True, loop=self.loop
             )
+
         self.evt_main_task_finished.set()
-        # retrieve results in any way
-        teardown_tasks = list(flatten_tasks(running_tasks_results))
         self.fut_cancel_main_task.cancel()
         await self.fut_cancel_main_task
-        return teardown_tasks
+        return tasks_results
+
+
+class Teardown:
+    """A collection of teardown tasks."""
+
+    def __init__(self):
+        self.tasks = []
+
+    def add(self, task):
+        self.tasks.append(task)
+
+    def __iter__(self):
+        """We teardown in the reverse order of registration."""
+        return reversed(self.tasks)
 
 
 class Staging:
@@ -195,6 +209,9 @@ class Staging:
     def __init__(self, *plugins, components=None, loop=None):
         self.components = components if components is not None else Components()
         self.loop = loop or asyncio.get_event_loop()
+
+        # provide a collection for teardown tasks
+        self.teardown = self.components.add(Teardown())
 
         # stage 1: bootstrap plugins
         self.bootstrap = self.components.add(
@@ -210,15 +227,16 @@ class Staging:
                 # plugin loading
                 yield self.bootstrap.load
 
-            # stage 2: run main task
-            teardown_tasks = self.loop.run_until_complete(fut_main_task)
-            yield teardown_tasks
+            # stage 2: run main task and collect teardown tasks
+            tasks_results = self.loop.run_until_complete(fut_main_task)
+            yield tasks_results
+
+            # TODO does it make sense to run as long as tasks are yielded from
+            # parent tasks? this would be a fully flexible statemachine without
+            # external semantics, like "stage" or "teardown phase"
 
             # stage 3: teardown
-            self.loop.run_until_complete(
-                asyncio.gather(*teardown_tasks, loop=self.loop)
-            )
-            yield None
+            self.loop.run_until_complete(asyncio.gather(*self.teardown, loop=self.loop))
 
         self.iterator = iterator()
 
@@ -238,7 +256,7 @@ def run(*plugins, components=None, loop=None):
     We have a three phase setup:
 
     1. run plugin hooks, to register arbitrary stuff and mainly gather a set of
-    asyncio tasks in the second phase
+    asyncio tasks for the second phase
 
     2. run all registered tasks together until complete
 
@@ -317,16 +335,8 @@ async def generate_async_result(fun_result):
             yield result
 
 
-async def async_gen_to_list(asyncgen):
-    lst = [item async for item in asyncgen]
-    return lst
-
-
-def flatten_tasks(result_list):
-    for item in result_list:
-        if inspect.isawaitable(item):
-            yield item
-        elif isinstance(item, collections.abc.Iterable):
-            for sub_item in item:
-                if inspect.isawaitable(sub_item):
-                    yield sub_item
+async def async_gen_to_list(task):
+    if inspect.isasyncgen(task):
+        lst = [item async for item in task]
+        return lst
+    return await task

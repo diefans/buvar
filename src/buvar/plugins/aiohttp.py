@@ -32,14 +32,17 @@ async def plugin():
         aiohttp.web.Application(middlewares=[aiohttp.web.normalize_path_middleware()])
     )
 
-    aiohttp_client_session = context.add(aiohttp.client.ClientSession())
-
     yield aiohttp.web._run_app(  # noqa: W0212
         aiohttp_app, host=aiohttp_config.host, port=aiohttp_config.port, print=None
     )
 
+    aiohttp_client_session = context.add(aiohttp.client.ClientSession())
+
     async def teardown():
+        __import__("pdb").set_trace()  # XXX BREAKPOINT
+
         async def teardown():
+            __import__("pdb").set_trace()  # XXX BREAKPOINT
             await aiohttp_client_session.close()
 
         yield teardown()

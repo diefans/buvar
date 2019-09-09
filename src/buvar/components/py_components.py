@@ -85,19 +85,3 @@ class Components:
         if default is missing:
             raise ComponentLookupError("Component not found", namespace, name, default)
         return default
-
-    def oldget(self, namespace, *, name=None, default=missing):
-        spaces = self.upstream(target=namespace, name=name)
-        # sort after mro
-        for key in spaces:
-            space = spaces[key]
-            if isinstance(key, type):
-                for cls in (namespace,) + namespace.__mro__[::-1]:
-                    if issubclass(key, cls) and name in space:
-                        return space[name]
-            elif name in space:
-                return space[name]
-
-        if default is missing:
-            raise ComponentLookupError("Component not found", namespace, name, default)
-        return default

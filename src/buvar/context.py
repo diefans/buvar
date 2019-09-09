@@ -82,12 +82,12 @@ def find(*args, **kwargs):
     return context.find(*args, **kwargs)
 
 
-def push():
+def push(*stack):
     current_task = asyncio_current_task()
     parent_context = getattr(current_task, "context", None)
     assert parent_context is not None, "There must be a context to push from."
 
-    context = parent_context.push()
+    context = parent_context.push(*stack)
     setattr(current_task, "context", context)
 
 
@@ -96,7 +96,7 @@ def pop():
     parent_context = getattr(current_task, "context", None)
     assert parent_context is not None, "There must be a context to pop from."
 
-    context = parent_context.parents
+    context = parent_context.pop()
     setattr(current_task, "context", context)
 
 

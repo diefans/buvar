@@ -26,14 +26,13 @@
     >>> for stage in stages:
     ...     pass
 """
-import contextlib
 import asyncio
 import collections
 import collections.abc
+import contextlib
 import importlib
 import inspect
 import itertools
-import sys
 
 import structlog
 
@@ -161,6 +160,9 @@ class Bootstrap:
                 else:
                     task.cancel()
 
+        # elevate the context
+        context.push()
+
         # run all tasks together
         # we send them into background and gather their results
         tasks = {
@@ -213,13 +215,13 @@ class Staging:
         # provide a collection for teardown tasks
         self.teardown = self.components.add(Teardown())
 
-        # stage 1: bootstrap plugins
         self.bootstrap = self.components.add(
             Bootstrap(components=components, loop=loop)
         )
         self.plugins = set(plugins)
 
         def iterator():
+            # stage 1: bootstrap plugins
             with self.bootstrap.run() as fut_main_task:
                 for plugin in self.plugins:
                     self.bootstrap.load(plugin)
@@ -230,10 +232,6 @@ class Staging:
             # stage 2: run main task and collect teardown tasks
             tasks_results = self.loop.run_until_complete(fut_main_task)
             yield tasks_results
-
-            # TODO does it make sense to run as long as tasks are yielded from
-            # parent tasks? this would be a fully flexible statemachine without
-            # external semantics, like "stage" or "teardown phase"
 
             # stage 3: teardown
             self.loop.run_until_complete(asyncio.gather(*self.teardown, loop=self.loop))
@@ -285,33 +283,20 @@ def resolve_dotted_name(name):
 
     # relative import
     if name.startswith("."):
-        target_name = name.split(".")[1:]
         frame = inspect.currentframe()
         while frame.f_globals["__name__"].startswith(__package__):
             frame = frame.f_back
+        caller_package = frame.f_globals["__package__"]
+    else:
+        caller_package = None
 
-        caller_name = frame.f_globals["__package__"].split(".")
-        try:
-            while not target_name[0]:
-                caller_name.pop()
-                target_name.pop(0)
-            name = ".".join(itertools.chain(caller_name, target_name))
-        except IndexError:
-            raise RuntimeError("Relative name gets out of parent packages!", name)
     part = ":"
     module_name, _, attr_name = name.partition(part)
+
     if part in attr_name:
         raise ValueError(f"Invalid name: {name}", name)
 
-    if module_name in sys.modules:
-        resolved = sys.modules[module_name]
-    else:
-        spec = importlib.util.find_spec(module_name)
-        if spec is None:
-            raise ValueError(f"Invalid module: {module_name}", module_name)
-        resolved = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(resolved)
-        sys.modules[resolved.__name__] = resolved
+    resolved = importlib.import_module(module_name, caller_package)
 
     if attr_name:
         resolved = getattr(resolved, attr_name)

@@ -1,20 +1,30 @@
 import pytest
 
 
-def test_run(event_loop):
-    from buvar import plugin, components
+@pytest.fixture
+def cmps():
+    from buvar import Components
 
-    cmps = components.Components()
+    cmps = Components()
+    return cmps
+
+
+@pytest.fixture(autouse=True)
+def no_elevated_context(mocker, cmps):
+    mocker.patch("buvar.plugin.context.push", side_effect=lambda *stack: cmps)
+
+
+def test_run(event_loop, cmps):
+    from buvar import plugin
 
     plugin.run("tests.foo_plugin", components=cmps, loop=event_loop)
-
     assert cmps.get("foo_plugin") == {"foo": "foo"}
 
 
 def test_run_relative_out_of_packages(event_loop):
     from buvar import plugin
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         plugin.run("tests.baz_plugin", loop=event_loop)
 
 
@@ -60,11 +70,9 @@ def test_run_iterable(event_loop):
     assert state == {"a": True, "b": True}
 
 
-def test_run_server(event_loop, caplog):
+def test_run_server(event_loop, caplog, cmps):
     import asyncio
-    from buvar import plugin, components, context
-
-    cmps = components.Components()
+    from buvar import plugin, context
 
     async def stop_server_on_start():
         fut_server = context.get(asyncio.Future, name="server")
@@ -93,11 +101,10 @@ def test_plugin_error(event_loop):
         assert e.error.args == ("Plugin is broken",)
 
 
-def test_cancel_main_task(event_loop):
+def test_cancel_main_task(event_loop, cmps):
     import asyncio
-    from buvar import plugin, components
+    from buvar import plugin
 
-    cmps = components.Components()
     state = {}
 
     async def server_plugin():
@@ -139,7 +146,7 @@ def test_resolve_dotted_name():
 def test_resolve_dotted_name_no_module():
     from buvar import plugin
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ModuleNotFoundError):
         plugin.resolve_dotted_name("nomodule:name")
 
 
@@ -157,10 +164,8 @@ def test_resolve_plugin_not_async(event_loop):
         plugin.resolve_plugin(lambda: None)
 
 
-def test_subtask(event_loop):
+def test_subtask(event_loop, cmps):
     from buvar import plugin, components, context
-
-    cmps = components.Components()
 
     state = {}
 

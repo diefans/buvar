@@ -1,24 +1,40 @@
 import pytest
 
 
-def test_config_source_schematize(mocker):
-    from buvar import config
+@pytest.mark.asyncio
+async def test_config_source_schematize(mocker, cmps):
+    from buvar import config, di
     import typing
     import attr
 
+    adapters = di.Adapters()
+
+    ConfigType = typing.TypeVar("ConfigType", bound="Config")
+    # to get typing_inspect.is_generic_type()
+    class Config(typing.Generic[ConfigType]):
+        def __init_subclass__(cls, section, **kwargs):
+            cls.__buvar_config_section__ = section
+
+        @adapters.adapter_classmethod
+        async def adapt(
+            cls: typing.Type[ConfigType], source: config.ConfigSource
+        ) -> ConfigType:
+            config = source.load(cls, cls.__buvar_config_section__)
+            return config
+
     @attr.s(auto_attribs=True)
-    class FooConfig:
+    class FooConfig(Config, section="foo"):
         bar: str = "default"
         foobar: float = 9.87
         baz: bool = config.bool_var(default=False)
 
     @attr.s(auto_attribs=True)
-    class BarConfig:
+    class BarConfig(Config, section="bar"):
         bim: float
         foo: FooConfig = FooConfig()
 
     @attr.s(auto_attribs=True, kw_only=True)
-    class BimConfig:
+    class BimConfig(Config, section="bim"):
         bar: BarConfig
         bam: bool = config.bool_var()
         bum: int = config.var(123)
@@ -43,6 +59,8 @@ def test_config_source_schematize(mocker):
     )
 
     cfg = config.ConfigSource(*sources, env_prefix="PREFIX")
+    foo_config = await adapters.nject(FooConfig, source=cfg)
+
     bar = cfg.load(BarConfig, "bar")
     foo = cfg.load(FooConfig, "foo")
     bim = cfg.load(BimConfig, "bim")
@@ -75,7 +93,7 @@ def test_config_missing():
     import attr
     from buvar import config
 
-    source = {"foo": {}}
+    source: dict = {"foo": {}}
 
     @attr.s(auto_attribs=True)
     class FooConfig:

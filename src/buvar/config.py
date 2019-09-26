@@ -3,10 +3,11 @@ import sys
 import typing
 
 import attr
+import cattr
 import structlog
 import tomlkit
 
-import cattr
+from . import di
 
 CNF_KEY = "buvar_config"
 
@@ -19,8 +20,8 @@ missing = object()
 
 @attr.s(auto_attribs=True)
 class ConfigValue:
-    name: str = None
-    help: str = None
+    name: typing.Optional[str] = None
+    help: typing.Optional[str] = None
 
 
 def var(
@@ -55,7 +56,7 @@ def _env_to_bool(val):
 def _env_to_list(val):
     """Take a comma separated string and split it."""
     if isinstance(val, str):
-        val = map(lambda x: x.trim(), val.split(","))
+        val = map(lambda x: x.strip(), val.split(","))
     return val
 
 
@@ -95,8 +96,8 @@ class ConfigSource(dict):
     def merge(self, source):
         merge_dict(self, source)
 
-    def load(self, scheme, name=...):
-        if name is ...:
+    def load(self, scheme, name=None):
+        if name is None:
             values = self
         else:
             values = self.get(name, {})
@@ -106,7 +107,10 @@ class ConfigSource(dict):
             values,
             env_prefix="_".join(
                 part
-                for part in (self.env_prefix, name.upper() if name is not ... else None)
+                for part in (
+                    self.env_prefix,
+                    name.upper() if name is not None else None,
+                )
                 if part
             ),
         )

@@ -130,3 +130,104 @@ def test_readme(event_loop, benchmark):
         event_loop.run_until_complete(test())
 
     benchmark(bench)
+
+
+@pytest.mark.asyncio
+async def test_generic_classmethod_1():
+    import typing
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    FooType = typing.TypeVar("FooType", bound="Foo")
+
+    class Foo(typing.Generic[FooType]):
+        @adapters.adapter_classmethod
+        async def adapt(cls: typing.Type[FooType]) -> FooType:
+            return cls()
+
+    class Bar(Foo):
+        pass
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)
+
+
+@pytest.mark.asyncio
+async def test_generic_classmethod_2():
+    import typing
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    FooType = typing.TypeVar("FooType", bound="Foo")
+
+    class Foo:
+        @adapters.adapter_classmethod
+        async def adapt(cls: typing.Type[FooType]) -> FooType:
+            return cls()
+
+    class Bar(Foo):
+        pass
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)
+
+
+@pytest.mark.asyncio
+async def test_generic_classmethod_3():
+    import typing
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    FooType = typing.TypeVar("FooType", bound="Foo")
+
+    class Foo:
+        @adapters.adapter_classmethod
+        async def adapt(cls) -> FooType:
+            return cls()
+
+    class Bar(Foo):
+        pass
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)
+
+
+@pytest.mark.asyncio
+async def test_generic_classmethod_4():
+    import typing
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    FooType = typing.TypeVar("FooType")
+
+    with pytest.raises(RuntimeError):
+
+        class Foo:
+            @adapters.adapter_classmethod
+            async def adapt(cls) -> FooType:
+                return cls()
+
+
+@pytest.mark.asyncio
+async def test_generic_classmethod_5():
+    import typing
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    FooType = typing.TypeVar("FooType")
+
+    class Foo(typing.Generic[FooType]):
+        @adapters.adapter_classmethod
+        async def adapt(cls) -> FooType:
+            return cls()
+
+    class Bar(Foo):
+        pass
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)

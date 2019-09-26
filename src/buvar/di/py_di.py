@@ -5,7 +5,7 @@ import itertools
 import sys
 import typing
 
-# import typing_inspect
+import typing_inspect
 
 from buvar import context
 
@@ -39,10 +39,13 @@ def _extract_optional_type(hint):
     # return hint
 
 
+class AdapterError(Exception):
+    pass
+
+
 def assert_annotated(spec):
-    assert set(spec.args + spec.kwonlyargs).issubset(
-        set(spec.annotations)
-    ), "An adapter must annotate all of its arguments."
+    if not set(spec.args + spec.kwonlyargs).issubset(set(spec.annotations)):
+        raise AdapterError("An adapter must annotate all of its arguments.", spec)
 
 
 def collect_defaults(spec):
@@ -62,10 +65,11 @@ class Adapter:
         args: typing.List[str],
         locals: typing.Dict[str, typing.Any],  # noqa
         globals: typing.Dict[str, typing.Any],  # noqa
-        owner: typing.Optional[typing.Type],
-        name: typing.Optional[str],
         implements: typing.Type,
         defaults: typing.Dict[str, typing.Any],
+        owner: typing.Optional[typing.Type] = None,
+        name: typing.Optional[str] = None,
+        generic: bool = False,
     ):
         self.func = func
         self.args = args
@@ -75,6 +79,7 @@ class Adapter:
         self.name = name
         self.implements = implements
         self.defaults = defaults
+        self.generic = generic
 
     def get_hints(self):
         f_locals = dict(self.locals)
@@ -94,9 +99,13 @@ class Adapter:
 
         return annotations
 
-    async def create(self, *args, **kwargs):
+    async def create(self, target, *args, **kwargs):
         """Create the target instance."""
-        func = functools.partial(self.func, self.owner) if self.owner else self.func
+        func = (
+            functools.partial(self.func, target if self.generic else self.owner)
+            if self.owner
+            else self.func
+        )
         if inspect.iscoroutinefunction(self.func):
             adapted = await func(*args, **kwargs)
         else:
@@ -109,12 +118,16 @@ class Adapters:
         self.index: typing.Dict[type, typing.List[Adapter]] = collections.defaultdict(
             list
         )
+        self.generic_index: typing.Dict[
+            typing.Type, typing.List[Adapter]
+        ] = collections.defaultdict(list)
 
     def adapter_classmethod(self, func):
         """Register a classmethod to adapt its arguments into its return type."""
 
-        class adapter:
-            def __init__(deco, func):
+        class _adapter_classmethod:
+            def __init__(deco, adapters, func):
+                deco.adapters = adapters
                 frame = sys._getframe(3)
                 spec = inspect.getfullargspec(func)
                 # remove cls arg
@@ -130,12 +143,12 @@ class Adapters:
                     args=args,
                     locals=frame.f_locals,
                     globals=frame.f_globals,
-                    owner=None,
-                    name=None,
                     defaults=collect_defaults(spec),
                     implements=implements,
                 )
-                self.index[implements].append(deco.adapter)
+
+                # register adapter
+                deco.adapters.index[implements].append(deco.adapter)
 
             def __set_name__(deco, owner, name):
                 deco.adapter.owner = owner
@@ -143,8 +156,31 @@ class Adapters:
 
                 try:
                     hints = deco.adapter.get_hints()
-                    deco.adapter.implements = hints["return"]
-                    self.index[hints["return"]].append(deco.adapter)
+                    return_type = hints["return"]
+                    deco.adapter.implements = return_type
+                    deco.adapters.index[return_type].append(deco.adapter)
+
+                    # test for generic type
+                    if typing_inspect.is_typevar(return_type):
+                        # register generic adapter
+                        localns = {**deco.adapter.locals, owner.__name__: owner}
+                        bound_generic_type = typing_inspect.get_bound(return_type)
+                        if bound_generic_type is None:
+                            if typing_inspect.is_generic_type(owner):
+                                bound_type = owner
+                            else:
+                                raise AdapterError(
+                                    "Generic adapter type is not bound to a type",
+                                    return_type,
+                                )
+                        else:
+                            bound_type = bound_generic_type._evaluate(
+                                deco.adapter.globals, localns
+                            )
+
+                        deco.adapters.generic_index[bound_type] = return_type
+                        deco.adapter.generic = True
+
                 except NameError:
                     pass
 
@@ -153,7 +189,7 @@ class Adapters:
                     owner = type(instance)
                 return functools.partial(deco.adapter.func, owner)
 
-        return adapter(func)
+        return _adapter_classmethod(self, func)
 
     def adapter(self, func):
         """Register a class or function to adapt arguments either into its
@@ -226,6 +262,17 @@ class Adapters:
                     adapter_list.append(adptr)
         return adapter_list
 
+    def get_possible_adapters(self, target, default):
+        # try to adapt
+        if target in self.index:
+            yield from self.index[target]
+        yield from self._find_string_target_adapters(target)
+
+        # find generic adapters
+        for base in inspect.getmro(target):
+            if base in self.generic_index:
+                yield from self.index[self.generic_index[base]]
+
     async def resolve_adapter(self, cmps, target, *, name=None, default=missing):
         # find in components
         try:
@@ -234,16 +281,8 @@ class Adapters:
         except components.ComponentLookupError:
             pass
 
-        # try to adapt
-        possible_adapters = (
-            self.index.get(target) or []
-        ) + self._find_string_target_adapters(target)
-
         resolve_errors = []
-        if possible_adapters is None:
-            if default is missing:
-                raise ResolveError("No possible adapter found", target, resolve_errors)
-            return default
+        possible_adapters = self.get_possible_adapters(target, default)
 
         for adptr in possible_adapters:
             try:
@@ -260,13 +299,20 @@ class Adapters:
                 # try next adapter
                 resolve_errors.append(ex)
             else:
-                component = await adptr.create(**adapter_args)
+                component = await adptr.create(target, **adapter_args)
                 # we do not use the name
                 cmps.add(component)
                 return component
-        if default is missing:
-            raise ResolveError("No adapter dependencies found", target, resolve_errors)
-        return default
+
+        if default is not missing:
+            return default
+
+        try:
+            # have we tried at least one adapter
+            adptr
+        except NameError:
+            raise ResolveError("No possible adapter found", target, [])
+        raise ResolveError("No adapter dependencies found", target, resolve_errors)
 
 
 def _get_name_or_default(cmps, target, name=None):

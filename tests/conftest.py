@@ -18,15 +18,28 @@ def implementation(request, mocker):
         from buvar.di import py_di
         from buvar.components import py_components
 
-        mocker.patch("buvar.di.Adapters", py_di.Adapters)
-        mocker.patch("buvar.components.Components", py_components.Components)
+        Adapters = py_di.Adapters
+        Components = py_components.Components
     else:
         try:
             from buvar.di import c_di
             from buvar.components import c_components
 
-            mocker.patch("buvar.di.Adapters", c_di.Adapters)
-            mocker.patch("buvar.components.Components", c_components.Components)
+            Adapters = c_di.Adapters
+            Components = c_components.Components
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
             return
+    mocker.patch("buvar.di.Adapters", Adapters)
+    mocker.patch("buvar.components.Components", Components)
+    mocker.patch("buvar.Components", Components)
+
+
+@pytest.fixture
+def cmps(event_loop, implementation):
+    from buvar import context
+    from buvar import Components
+
+    cmps = Components()
+    context.set_task_factory(cmps, loop=event_loop)
+    return cmps

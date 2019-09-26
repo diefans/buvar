@@ -21,9 +21,9 @@ Register a class, function or method to adapt arguments into something else.
 """
 try:
     # gains over 100% speed up
-    from .c_di import Adapters
+    from .c_di import Adapters, AdapterError
 except ImportError:
-    from .py_di import Adapters  # noqa: W0611
+    from .py_di import Adapters, AdapterError  # noqa: W0611
 
 defaults_adapters = Adapters()
 adapter_classmethod = defaults_adapters.adapter_classmethod

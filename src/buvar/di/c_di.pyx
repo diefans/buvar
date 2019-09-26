@@ -8,7 +8,7 @@ import inspect
 import itertools
 import typing
 
-# import typing_inspect
+import typing_inspect
 
 from buvar import context
 
@@ -39,10 +39,13 @@ cdef _extract_optional_type(hint):
     # return hint
 
 
+class AdapterError(Exception):
+    pass
+
+
 def assert_annotated(spec):
-    assert set(spec.args + spec.kwonlyargs).issubset(
-        set(spec.annotations)
-    ), "An adapter must annotate all of its arguments."
+    if not set(spec.args + spec.kwonlyargs).issubset(set(spec.annotations)):
+        raise AdapterError("An adapter must annotate all of its arguments.", spec)
 
 
 def collect_defaults(spec):
@@ -60,10 +63,11 @@ cdef class Adapter:
     cdef list args
     cdef dict locals
     cdef dict globals
-    cdef owner
-    cdef name
     cdef object implements
     cdef dict defaults
+    cdef owner
+    cdef str name
+    cdef generic
     cdef _annotations
 
     def __init__(
@@ -72,10 +76,11 @@ cdef class Adapter:
         args,
         locals,
         globals,
-        owner,
-        name,
         implements,
         defaults,
+        owner=None,
+        name=None,
+        generic=False,
     ):
         self.func = func
         self.args = args
@@ -85,6 +90,7 @@ cdef class Adapter:
         self.name = name
         self.implements = implements
         self.defaults = defaults
+        self.generic = generic
         self._annotations = None
 
     cdef get_hints(self):
@@ -115,9 +121,13 @@ cdef class Adapter:
     def annotations(self):
         return self.__annotations()
 
-    async def create(self, *args, **kwargs):
+    async def create(self, target, *args, **kwargs):
         """Create the target instance."""
-        func = functools.partial(self.func, self.owner) if self.owner else self.func
+        func = (
+            functools.partial(self.func, target if self.generic else self.owner)
+            if self.owner
+            else self.func
+        )
         if inspect.iscoroutinefunction(self.func):
             adapted = await func(*args, **kwargs)
         else:
@@ -182,8 +192,30 @@ cdef class _adapter:
 
         try:
             hints = self.adapter.get_hints()
-            self.adapter.implements = hints["return"]
-            self.adapters.add(hints["return"], self.adapter)
+            return_type = hints["return"]
+            self.adapter.implements = return_type
+            self.adapters.add(return_type, self.adapter)
+            # test for generic type
+            if typing_inspect.is_typevar(return_type):
+                # register generic adapter
+                localns = {**self.adapter.locals, owner.__name__: owner}
+                bound_generic_type = typing_inspect.get_bound(return_type)
+                if bound_generic_type is None:
+                    if typing_inspect.is_generic_type(owner):
+                        bound_type = owner
+                    else:
+                        raise AdapterError(
+                            "Generic adapter type is not bound to a type",
+                            return_type,
+                        )
+                else:
+                    bound_type = bound_generic_type._evaluate(
+                        self.adapter.globals, localns
+                    )
+
+                self.adapters.generic_index[bound_type] = return_type
+                self.adapter.generic = True
+
         except NameError:
             pass
 
@@ -195,12 +227,18 @@ cdef class _adapter:
 
 cdef class Adapters:
     cdef dict _index
+    cdef dict _generic_index
     def __init__(self):
         self._index = {}
+        self._generic_index = {}
 
     @property
     def index(self):
         return self._index
+
+    @property
+    def generic_index(self):
+        return self._generic_index
 
     cdef _add(self, target, adapter):
         if target in self._index:
@@ -274,6 +312,17 @@ cdef class Adapters:
                     adapter_list.append(adptr)
         return adapter_list
 
+    def get_possible_adapters(self, target, default):
+        # try to adapt
+        if target in self.index:
+            yield from self.index[target]
+        yield from self._find_string_target_adapters(target)
+
+        # find generic adapters
+        for base in inspect.getmro(target):
+            if base in self.generic_index:
+                yield from self.index[self.generic_index[base]]
+
     async def resolve_adapter(self, Components cmps, object target, *, name=None, default=missing):
         cdef object component
         # find in components
@@ -283,18 +332,10 @@ cdef class Adapters:
         except ComponentLookupError:
             pass
 
-        # try to adapt
-        cdef list possible_adapters = (
-            self._index.get(target) or []
-        ) + self._find_string_target_adapters(target)
-
         cdef list resolve_errors = []
-        if possible_adapters is None:
-            if default is missing:
-                raise ResolveError("No possible adapter found", target, resolve_errors)
-            return default
         cdef Adapter adptr
         cdef dict adapter_args
+        possible_adapters = self.get_possible_adapters(target, default)
         for adptr in possible_adapters:
             try:
                 adapter_args = {
@@ -310,13 +351,20 @@ cdef class Adapters:
                 # try next adapter
                 resolve_errors.append(ex)
             else:
-                component = await adptr.create(**adapter_args)
+                component = await adptr.create(target, **adapter_args)
                 # we do not use the name
                 cmps._add(component)
                 return component
-        if default is missing:
-            raise ResolveError("No adapter dependencies found", target, resolve_errors)
-        return default
+
+        if default is not missing:
+            return default
+
+        try:
+            # have we tried at least one adapter
+            adptr
+        except NameError:
+            raise ResolveError("No possible adapter found", target, [])
+        raise ResolveError("No adapter dependencies found", target, resolve_errors)
 
 
 cdef _get_name_or_default(Components cmps, object target, name=None):

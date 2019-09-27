@@ -14,6 +14,8 @@ from buvar import context
 
 from .. import util
 
+PY_36 = sys.version_info < (3, 7)
+
 missing = object()
 
 
@@ -22,21 +24,12 @@ class ResolveError(Exception):
 
 
 cdef _extract_optional_type(hint):
-    none = type(None)
-    if (
-        hint is typing.Union
-        or isinstance(hint, typing._GenericAlias)
-        and hint.__origin__ is typing.Union
-    ):
-        if none in hint.__args__ and len(hint.__args__) == 2:
-            for h in hint.__args__:
-                if h is not none:
-                    return h
+    if typing_inspect.is_optional_type(hint):
+        none = type(None)
+        for h in hint.__args__:
+            if h is not none:
+                return h
     return hint
-    # if typing_inspect.is_optional_type(hint):
-    #     hint, _ = typing_inspect.get_args(hint)
-    #     return hint
-    # return hint
 
 
 class AdapterError(Exception):
@@ -209,9 +202,10 @@ cdef class _adapter:
                             return_type,
                         )
                 else:
-                    bound_type = bound_generic_type._evaluate(
-                        self.adapter.globals, localns
-                    )
+                    bound_type = getattr(
+                        bound_generic_type,
+                        "_eval_type" if PY_36 else "_evaluate",
+                    )(self.adapter.globals, localns)
 
                 self.adapters.generic_index[bound_type] = return_type
                 self.adapter.generic = True

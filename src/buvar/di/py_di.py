@@ -12,6 +12,8 @@ from buvar import context
 from .. import util
 from ..components import py_components as components
 
+PY_36 = sys.version_info < (3, 7)
+
 missing = object()
 
 
@@ -20,23 +22,12 @@ class ResolveError(Exception):
 
 
 def _extract_optional_type(hint):
-    none = type(None)
-    if (
-        hint is typing.Union
-        or isinstance(hint, typing._GenericAlias)
-        and hint.__origin__ is typing.Union
-    ):
-        if none in hint.__args__ and len(hint.__args__) == 2:
-            for h in hint.__args__:
-                if h is not none:
-                    return h
+    if typing_inspect.is_optional_type(hint):
+        none = type(None)
+        for h in hint.__args__:
+            if h is not none:
+                return h
     return hint
-
-    # if typing_inspect.is_optional_type(hint):
-    #     __import__("pdb").set_trace()  # XXX BREAKPOINT
-    #     hint, _ = typing_inspect.get_args(hint)
-    #     return hint
-    # return hint
 
 
 class AdapterError(Exception):
@@ -174,9 +165,10 @@ class Adapters:
                                     return_type,
                                 )
                         else:
-                            bound_type = bound_generic_type._evaluate(
-                                deco.adapter.globals, localns
-                            )
+                            bound_type = getattr(
+                                bound_generic_type,
+                                "_eval_type" if PY_36 else "_evaluate",
+                            )(deco.adapter.globals, localns)
 
                         deco.adapters.generic_index[bound_type] = return_type
                         deco.adapter.generic = True
@@ -284,6 +276,7 @@ class Adapters:
         resolve_errors = []
         possible_adapters = self.get_possible_adapters(target, default)
 
+        adptr = None
         for adptr in possible_adapters:
             try:
                 adapter_args = {
@@ -307,10 +300,8 @@ class Adapters:
         if default is not missing:
             return default
 
-        try:
-            # have we tried at least one adapter
-            adptr
-        except NameError:
+        # have we tried at least one adapter
+        if adptr is None:
             raise ResolveError("No possible adapter found", target, [])
         raise ResolveError("No adapter dependencies found", target, resolve_errors)
 

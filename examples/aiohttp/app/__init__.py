@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import typing
 
 import aiohttp.web
@@ -39,9 +37,10 @@ def json_response(
 @di.register
 @attr.s(auto_attribs=True)
 class Something:
-    component: SomeComponent
+    component: "SomeComponent"
+
     foo: str
-    bar: float = None
+    bar: typing.Optional[float] = None
 
     def __json__(self):
         return attr.asdict(self)
@@ -61,7 +60,7 @@ class SomeService:
 @attr.s(auto_attribs=True)
 class SomeComponent:
     foo: str
-    bar: str = None
+    bar: typing.Optional[float] = None
 
     def __json__(self):
         return attr.asdict(self)
@@ -86,4 +85,4 @@ async def plugin(include):
     await include(".server")
     app = context.get(aiohttp.web.Application)
     app.add_routes(routes)
-    context.add(SomeComponent(foo="bar", bar="baz"))
+    context.add(SomeComponent(foo="bar", bar=1.23))

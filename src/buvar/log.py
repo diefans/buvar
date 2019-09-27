@@ -3,18 +3,55 @@ import logging.config
 import os
 import sys
 
-import orjson
 import structlog
 
-LOGGING_LEVEL_NAMES = list(map(logging.getLevelName, sorted((
-    logging.NOTSET, logging.DEBUG, logging.INFO,
-    logging.WARN, logging.ERROR, logging.CRITICAL,
-))))
+try:
+    import orjson
+
+    class OrJsonRenderer:
+        def __init__(self, option=orjson.OPT_NAIVE_UTC):  # noqa: I1101
+            self.option = option
+
+        def __call__(self, logger, name, event_dict):
+            return orjson.dumps(
+                event_dict,  # noqa: I1101
+                default=lambda obj: str(repr(obj)),
+                option=self.option,
+            )
+
+    json_renderer = OrJsonRenderer()
+except ImportError:
+    import json
+
+    class JsonRenderer:
+        def __call__(self, logger, name, event_dict):
+            return json.dumps(
+                event_dict, default=lambda obj: str(repr(obj))  # noqa: I1101
+            )
+
+    json_renderer = JsonRenderer()
+
+
+LOGGING_LEVEL_NAMES = list(
+    map(
+        logging.getLevelName,
+        sorted(
+            (
+                logging.NOTSET,
+                logging.DEBUG,
+                logging.INFO,
+                logging.WARN,
+                logging.ERROR,
+                logging.CRITICAL,
+            )
+        ),
+    )
+)
 DEFAULT_LOGGING_LEVEL = logging.getLevelName(logging.WARNING)
 PID = os.getpid()
 
 
-class ExtractLogExtra:      # noqa: R0903
+class ExtractLogExtra:  # noqa: R0903
 
     """Extract log record attributes to structlog event_dict."""
 
@@ -40,34 +77,29 @@ class StdioToLog:
     def __init__(self, logger, log_level=logging.INFO):
         self.logger = logger
         self.log_level = log_level
-        self.linebuf = ''
+        self.linebuf = ""
 
-    def write(self, buf):   # noqa
+    def write(self, buf):  # noqa
         for line in buf.rstrip().splitlines():
             self.logger.log(self.log_level, line.rstrip())
 
-    def flush(self):        # noqa
+    def flush(self):  # noqa
         pass
 
 
-def add_os_pid(logger, method_name, event_dict):        # noqa
+def add_os_pid(logger, method_name, event_dict):  # noqa
     """Add the logger name to the event dict."""
     event_dict["pid"] = PID
     return event_dict
 
 
-class OrJsonRenderer:
-    def __init__(self, option=orjson.OPT_NAIVE_UTC):    # noqa: I1101
-        self.option = option
-
-    def __call__(self, logger, name, event_dict):
-        return orjson.dumps(event_dict,                 # noqa: I1101
-                            default=lambda obj: str(repr(obj)),
-                            option=self.option)
-
-
-def setup_logging(tty=True, level=logging.DEBUG, capture_warnings=True,
-                  redirect_print=False):
+def setup_logging(
+    tty=True,
+    level=logging.DEBUG,
+    capture_warnings=True,
+    redirect_print=False,
+    json_renderer=json_renderer,
+):
     """Set up structured logging for logstash.
 
     :param tty: if True renders colored logs
@@ -79,9 +111,7 @@ def setup_logging(tty=True, level=logging.DEBUG, capture_warnings=True,
     if isinstance(level, str):
         level = logging.getLevelName(level.upper())
 
-    renderer = (structlog.dev.ConsoleRenderer()
-                if tty else OrJsonRenderer()
-                )
+    renderer = structlog.dev.ConsoleRenderer() if tty else json_renderer
     timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
     pre_chain = [
         # Add the log level and a timestamp to the event_dict if the log entry
@@ -90,47 +120,54 @@ def setup_logging(tty=True, level=logging.DEBUG, capture_warnings=True,
         structlog.stdlib.add_log_level,
         add_os_pid,
         structlog.processors.format_exc_info,
-        ExtractLogExtra('spec', 'url', 'mimetype', 'has_body', 'swagger_yaml',
-                        'method', 'path', 'operation_id', 'data'),
+        ExtractLogExtra(
+            "spec",
+            "url",
+            "mimetype",
+            "has_body",
+            "swagger_yaml",
+            "method",
+            "path",
+            "operation_id",
+            "data",
+        ),
         timestamper,
     ]
 
-    logging.config.dictConfig({
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "plain": {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": renderer,
-                "foreign_pre_chain": pre_chain,
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "plain": {
+                    "()": structlog.stdlib.ProcessorFormatter,
+                    "processor": renderer,
+                    "foreign_pre_chain": pre_chain,
+                },
+                "colored": {
+                    "()": structlog.stdlib.ProcessorFormatter,
+                    "processor": renderer,
+                    "foreign_pre_chain": pre_chain,
+                },
             },
-            "colored": {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": renderer,
-                "foreign_pre_chain": pre_chain,
+            "handlers": {
+                "default": {
+                    # "level": "DEBUG",
+                    "class": "logging.StreamHandler",
+                    "formatter": "colored",
+                },
+                # "file": {
+                #     # "level": "DEBUG",
+                #     "class": "logging.handlers.WatchedFileHandler",
+                #     "filename": "test.log",
+                #     "formatter": "plain",
+                # },
             },
-        },
-        "handlers": {
-            "default": {
-                # "level": "DEBUG",
-                "class": "logging.StreamHandler",
-                "formatter": "colored",
-            },
-            # "file": {
-            #     # "level": "DEBUG",
-            #     "class": "logging.handlers.WatchedFileHandler",
-            #     "filename": "test.log",
-            #     "formatter": "plain",
-            # },
-        },
-        "loggers": {
-            "": {
-                "handlers": ["default"],
-                "level": level,
-                "propagate": True,
+            "loggers": {
+                "": {"handlers": ["default"], "level": level, "propagate": True}
             },
         }
-    })
+    )
     logging.captureWarnings(capture_warnings)
     processors = [
         structlog.stdlib.add_log_level,
@@ -153,7 +190,7 @@ def setup_logging(tty=True, level=logging.DEBUG, capture_warnings=True,
 
     if redirect_print:
         # redirect stdio print
-        print_log = structlog.get_logger('print')
+        print_log = structlog.get_logger("print")
         sys.stderr = StdioToLog(print_log)
         sys.stdout = StdioToLog(print_log)
 
@@ -162,5 +199,5 @@ def setup_logging(tty=True, level=logging.DEBUG, capture_warnings=True,
 
 
 def uncaught_exception(ex_type, ex_value, tb):  # noqa: C0103
-    log_ = structlog.get_logger('sys.excepthook')
-    log_.critical(event='uncaught exception', exc_info=(ex_type, ex_value, tb))
+    log_ = structlog.get_logger("sys.excepthook")
+    log_.critical(event="uncaught exception", exc_info=(ex_type, ex_value, tb))

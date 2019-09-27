@@ -1,5 +1,5 @@
 # we only distribute source
-c_resolve.c
-c_resolve.*.so
+c_di.c
+c_di.*.so
 c_components.c
 c_components.*.so

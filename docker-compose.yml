@@ -1,0 +1,16 @@
+version: '3'
+
+volumes: {}
+
+services:
+  manylinux2010:
+    image: quay.io/pypa/manylinux2010_x86_64
+    user: root
+    environment:
+      PLAT: manylinux2010_x86_64
+    volumes:
+      - "./:/io"
+    tmpfs:
+      - /io/build
+      - /io/dist
+      - /io/tests/__pycache__

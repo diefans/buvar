@@ -1,4 +1,4 @@
-from __future__ import annotations
+import sys
 
 import pytest
 
@@ -74,7 +74,7 @@ async def test_di_adapter():
 
     class Bar:
         @adapters.adapter_classmethod
-        def adapt(cls) -> Bar:
+        def adapt(cls) -> "Bar":
             assert cls == Bar
             return cls()
 
@@ -84,15 +84,15 @@ async def test_di_adapter():
             self.bar = bar
 
         @adapters.adapter_classmethod
-        def adapt(cls, bar: Bar) -> Foo:
+        def adapt(cls, bar: Bar) -> "Foo":
             return cls(bar)
 
     @adapters.adapter
     def adapt(bar: Bar) -> Foo:
         return Foo(bar)
 
-    bar = await adapters.nject(Bar)
-    foo = await adapters.nject(Foo)
+    _ = await adapters.nject(Bar)
+    _ = await adapters.nject(Foo)
     assert set(adapters.index) == {"Foo", Foo, "Bar", Bar}
 
 
@@ -110,7 +110,7 @@ def test_readme(event_loop, benchmark):
             self.bar = bar
 
         @adapters.adapter_classmethod
-        async def adapt_classmethod(cls, baz: str) -> Foo:
+        async def adapt_classmethod(cls, baz: str) -> "Foo":
             return Foo()
 
     @adapters.adapter
@@ -132,6 +132,10 @@ def test_readme(event_loop, benchmark):
     benchmark(bench)
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 7),
+    reason="similar to https://github.com/python/typing/issues/506",
+)
 @pytest.mark.asyncio
 async def test_generic_classmethod_1():
     import typing
@@ -212,6 +216,10 @@ async def test_generic_classmethod_4():
                 return cls()
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 7),
+    reason="similar to https://github.com/python/typing/issues/506",
+)
 @pytest.mark.asyncio
 async def test_generic_classmethod_5():
     import typing

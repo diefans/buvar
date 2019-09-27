@@ -1,6 +1,12 @@
+import sys
+
 import pytest
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 7),
+    reason="similar to https://github.com/python/typing/issues/506",
+)
 @pytest.mark.asyncio
 async def test_config_source_schematize(mocker, cmps):
     from buvar import config, di

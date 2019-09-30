@@ -15,10 +15,13 @@ def no_elevated_context(mocker, cmps):
 
 
 def test_run(event_loop, cmps):
-    from buvar import plugin
+    from buvar import plugin, components
 
-    plugin.run("tests.foo_plugin", components=cmps, loop=event_loop)
-    assert cmps.get("foo_plugin") == {"foo": "foo"}
+    result = plugin.run("tests.foo_plugin", components=cmps, loop=event_loop)
+    assert result == [{"foo": "foo"}, None, None]
+    with pytest.raises(components.ComponentLookupError) as e:
+        cmps.get("foo_plugin")
+    assert e.value.args[1] == "foo_plugin"
 
 
 def test_run_relative_out_of_packages(event_loop):

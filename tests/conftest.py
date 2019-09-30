@@ -20,6 +20,7 @@ def implementation(request, mocker):
 
         Adapters = py_di.Adapters
         Components = py_components.Components
+        ComponentLookupError = py_components.ComponentLookupError
     else:
         try:
             from buvar.di import c_di
@@ -27,12 +28,15 @@ def implementation(request, mocker):
 
             Adapters = c_di.Adapters
             Components = c_components.Components
+            ComponentLookupError = c_components.ComponentLookupError
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
             return
     mocker.patch("buvar.di.Adapters", Adapters)
     mocker.patch("buvar.components.Components", Components)
+    mocker.patch("buvar.components.ComponentLookupError", ComponentLookupError)
     mocker.patch("buvar.Components", Components)
+    mocker.patch("buvar.ComponentLookupError", ComponentLookupError)
 
 
 @pytest.fixture

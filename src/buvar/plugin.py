@@ -42,6 +42,9 @@ from .components import Components
 PLUGIN_FUNCTION_NAME = "plugin"
 
 
+sl = structlog.get_logger()
+
+
 class Tasks(collections.OrderedDict):
     pass
 
@@ -66,7 +69,7 @@ class Bootstrap:
         self.components = components if components is not None else Components()
 
         # set task factory to serve our components context
-        context.set_task_factory(self.components, loop=self.loop)
+        self.task_factory = context.set_task_factory(self.components, loop=self.loop)
 
         # a collection of all tasks to run
         self.collected_tasks = self.components.add(Tasks())
@@ -120,7 +123,6 @@ class Bootstrap:
             # if a plugin raises an error, we cancel the scheduled main task
             import traceback
 
-            sl = structlog.get_logger()
             sl.error(
                 "Error while loading plugins",
                 exception=ex,
@@ -161,14 +163,14 @@ class Bootstrap:
                     task.cancel()
 
         # elevate the context
-        context.push()
+        self.task_factory.enable_stacking()
 
         # run all tasks together
         # we send them into background and gather their results
-        tasks = {
+        tasks = [
             asyncio.ensure_future(async_gen_to_list(task), loop=self.loop)
             for task in self.collected_tasks_list
-        }
+        ]
 
         try:
             # we run until all tasks have completed
@@ -260,7 +262,8 @@ def run(*plugins, components=None, loop=None):
 
     3. run returned tasks for teardown
     """
-    list(Staging(*plugins, components=components, loop=loop))
+    _, result = Staging(*plugins, components=components, loop=loop)
+    return result
 
 
 def resolve_plugin(plugin, function_name=PLUGIN_FUNCTION_NAME):
@@ -321,6 +324,7 @@ async def generate_async_result(fun_result):
 
 
 async def async_gen_to_list(task):
+    sl.debug("Wrap task", task=task)
     if inspect.isasyncgen(task):
         lst = [item async for item in task]
         return lst

@@ -74,6 +74,8 @@ setup_kwargs = {
             "pytest-benchmark>=3.2.2<4.0",
             "mock>=3.0<4.0",
             "pytest-mock>=1.10<2.0",
+            "pytest-watch>=4.2<5.0",
+            "pytest-randomly>=3.1<4.0",
             "pdbpp",
         ],
         "orjson": ["orjson>=2.0,<3.0"],

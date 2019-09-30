@@ -4,6 +4,7 @@ from buvar import context
 async def foo():
     ctx = context.find(str)
     context.add(ctx, "foo_plugin")
+    return ctx
 
 
 async def plugin(include):

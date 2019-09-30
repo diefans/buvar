@@ -79,6 +79,7 @@ setup_kwargs = {
             "pdbpp",
         ],
         "orjson": ["orjson>=2.0,<3.0"],
+        "all": ["aiohttp"],
     },
     "entry_points": entry_points,
     "python_requires": ">=3.6,<4.0",

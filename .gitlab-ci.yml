@@ -5,7 +5,7 @@ stages:
 test_x86_64:
   stage: wheels
   image: quay.io/pypa/manylinux2010_x86_64
-  environment:
+  variables:
     PLAT: manylinux2010_x86_64
   script:
     - ./build_manylinux.sh

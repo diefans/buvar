@@ -2,19 +2,21 @@ stages:
   - tests
   - wheels
 
-tests_python_36:
+
+.tests: &tests
   stage: tests
-  image: python:3.6-alpine
   script:
-    - pip install .[all,tests]
+    - pip install cython .[all,tests]
     - pytest
 
+tests_python_36:
+  <<: *tests
+  image: python:3.6-alpine
+
 tests_python_37:
-  stage: tests
+  <<: *tests
   image: python:3.7-alpine
-  script:
-    - pip install .[all,tests]
-    - pytest
+
 
 .wheels: &wheels
   stage: wheels

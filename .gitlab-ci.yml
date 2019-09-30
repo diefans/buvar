@@ -4,14 +4,14 @@ stages:
 
 tests_python_36:
   stage: tests
-  image: python3.6-alpine
+  image: python:3.6-alpine
   script:
     - pip install .[all,tests]
     - pytest
 
 tests_python_37:
   stage: tests
-  image: python3.7-alpine
+  image: python:3.7-alpine
   script:
     - pip install .[all,tests]
     - pytest

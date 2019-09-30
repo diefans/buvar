@@ -14,3 +14,5 @@ services:
       - /io/build
       - /io/dist
       - /io/tests/__pycache__
+    working_dir: /io
+    command: ./build_manylinux.sh

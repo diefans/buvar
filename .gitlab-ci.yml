@@ -1,0 +1,16 @@
+stages:
+  - wheels
+
+
+test_x86_64:
+  stage: wheels
+  image: quay.io/pypa/manylinux2010_x86_64
+  environment:
+    PLAT: manylinux2010_x86_64
+  script:
+    - ./build_manylinux.sh
+  artifacts:
+    when: on_success
+    paths:
+      - wheelhouse
+    expire_in: 30 mins

@@ -6,16 +6,16 @@ stages:
 .tests: &tests
   stage: tests
   script:
-    - pip install cython .[all,tests]
+    - pip install .[all,tests]
     - pytest
 
 tests_python_36:
   <<: *tests
-  image: python:3.6-alpine
+  image: diefans/python3.6-alpine-cython:0.1.0
 
 tests_python_37:
   <<: *tests
-  image: python:3.7-alpine
+  image: diefans/python3.7-alpine-cython:0.1.0
 
 
 .wheels: &wheels

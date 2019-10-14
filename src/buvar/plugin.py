@@ -33,6 +33,7 @@ import contextlib
 import importlib
 import inspect
 import itertools
+import traceback
 
 import structlog
 
@@ -168,7 +169,7 @@ class Bootstrap:
         # run all tasks together
         # we send them into background and gather their results
         tasks = [
-            asyncio.ensure_future(async_gen_to_list(task), loop=self.loop)
+            asyncio.ensure_future(log_exceptions(task), loop=self.loop)
             for task in self.collected_tasks_list
         ]
 
@@ -323,9 +324,11 @@ async def generate_async_result(fun_result):
             yield result
 
 
-async def async_gen_to_list(task):
-    sl.debug("Wrap task", task=task)
-    if inspect.isasyncgen(task):
-        lst = [item async for item in task]
-        return lst
-    return await task
+async def log_exceptions(task):
+    try:
+        return await task
+    except asyncio.CancelledError:
+        pass
+    except Exception as ex:
+        sl.error("Error executing task", error=ex, traceback=traceback.format_exc())
+        raise

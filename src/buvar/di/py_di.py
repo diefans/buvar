@@ -139,7 +139,7 @@ class Adapters:
                 )
 
                 # register adapter
-                deco.adapters.index[implements].append(deco.adapter)
+                deco.adapters.index[implements].insert(0, deco.adapter)
 
             def __set_name__(deco, owner, name):
                 deco.adapter.owner = owner

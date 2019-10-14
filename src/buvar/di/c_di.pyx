@@ -236,7 +236,7 @@ cdef class Adapters:
 
     cdef _add(self, target, adapter):
         if target in self._index:
-            self._index[target].append(adapter)
+            self._index[target].insert(0, adapter)
         else:
             self._index[target] = [adapter]
 

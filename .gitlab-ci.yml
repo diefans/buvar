@@ -22,11 +22,13 @@ tests_python_37:
   stage: wheels
   image: quay.io/pypa/manylinux2010_x86_64
   script:
+    - mkdir ./dist
     - ./build_manylinux.sh
+    - cp ./wheelhouse/buvar* ./dist
   artifacts:
     when: on_success
     paths:
-      - wheelhouse
+      - dist
     expire_in: 30 mins
 
 wheels_python37_x86_64:

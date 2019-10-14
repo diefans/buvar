@@ -2,11 +2,8 @@
 import asyncio
 import contextlib
 import sys
-import structlog
 
 from . import components
-
-__all__ = ("get", "add", "find")
 
 BUVAR_CONTEXT_ATTR = "__buvar_context__"
 
@@ -25,8 +22,6 @@ if PY37:
 
 else:
     asyncio_current_task = asyncio.Task.current_task
-
-sl = structlog.get_logger()
 
 
 class TaskFactory:
@@ -53,7 +48,6 @@ class TaskFactory:
         return self.root_context
 
     def __call__(self, loop, coro):
-        sl.debug("Create task", coro=coro, loop=id(loop))
         context = current_context(loop=loop)
         new_context = self.default(context)
         task = self.factory(loop=loop, coro=coro)

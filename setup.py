@@ -56,7 +56,7 @@ entry_points = {"console_scripts": ["buvar = buvar.cli:main"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": None,
     "author": "Oliver Berger",

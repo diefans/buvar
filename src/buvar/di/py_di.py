@@ -226,7 +226,8 @@ class Adapters:
 
         # add current context
         current_context = context.current_context()
-        cmps = cmps.push(*current_context.stack or [])
+        stack = current_context.stack if current_context else []
+        cmps = cmps.push(*stack)
 
         # add default named dependencies
         cmps = cmps.push()

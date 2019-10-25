@@ -131,6 +131,7 @@ cdef class Adapter:
 cdef prepare_components(tuple targets, dict dependencies):
     # create components
     cdef Components cmps = Components()
+    cdef list stack
 
     # add default unnamed dependencies
     # every non-default argument of the same type gets its value
@@ -141,7 +142,11 @@ cdef prepare_components(tuple targets, dict dependencies):
     cdef Components current_context = context.current_context()
 
     # add current context
-    cmps = cmps.push(*current_context.stack)
+    if not current_context:
+        stack = []
+    else:
+        stack = current_context.stack
+    cmps = cmps.push(*stack)
 
     # add default named dependencies
     cmps = cmps.push()
@@ -254,9 +259,11 @@ cdef class Adapters:
         spec = inspect.getfullargspec(func)
         # remove self arg
         if isinstance(func, type):
+            spec = inspect.getfullargspec(func.__init__)
             spec.args.pop(0)
             implements = func
         else:
+            spec = inspect.getfullargspec(func)
             implements = spec.annotations["return"]
         # all arguments must be annotated
         assert_annotated(spec)

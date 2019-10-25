@@ -117,6 +117,33 @@ class ConfigSource(dict):
         return scheme
 
 
+class ConfigError(Exception):
+    ...
+
+
+# to get typing_inspect.is_generic_type()
+ConfigType = typing.TypeVar("ConfigType", bound="Config")
+
+
+class Config:
+    __buvar_config_sections__ = {}
+
+    def __init_subclass__(cls, section=None, **kwargs):
+        if section in cls.__buvar_config_sections__:
+            raise ConfigError(
+                f"Config section `{section}` already defined!",
+                cls.__buvar_config_sections__,
+                cls,
+            )
+        cls.__buvar_config_section__ = section
+        cls.__buvar_config_sections__[section] = cls
+
+    @di.adapter_classmethod
+    async def adapt(cls: typing.Type[ConfigType], source: ConfigSource) -> ConfigType:
+        config = source.load(cls, cls.__buvar_config_section__)
+        return config
+
+
 def isattrs(obj):
     return hasattr(obj, "__attrs_attrs__")
 

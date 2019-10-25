@@ -1,46 +1,29 @@
-import sys
-
 import pytest
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7),
-    reason="similar to https://github.com/python/typing/issues/506",
-)
+# @pytest.mark.skipif(
+#     sys.version_info < (3, 7),
+#     reason="similar to https://github.com/python/typing/issues/506",
+# )
 @pytest.mark.asyncio
 async def test_config_source_schematize(mocker, cmps):
-    from buvar import config, di
+    from buvar import config
     import typing
     import attr
 
-    adapters = di.Adapters()
-
-    ConfigType = typing.TypeVar("ConfigType", bound="Config")
-    # to get typing_inspect.is_generic_type()
-    class Config(typing.Generic[ConfigType]):
-        def __init_subclass__(cls, section, **kwargs):
-            cls.__buvar_config_section__ = section
-
-        @adapters.adapter_classmethod
-        async def adapt(
-            cls: typing.Type[ConfigType], source: config.ConfigSource
-        ) -> ConfigType:
-            config = source.load(cls, cls.__buvar_config_section__)
-            return config
-
     @attr.s(auto_attribs=True)
-    class FooConfig(Config, section="foo"):
+    class FooConfig:
         bar: str = "default"
         foobar: float = 9.87
         baz: bool = config.bool_var(default=False)
 
     @attr.s(auto_attribs=True)
-    class BarConfig(Config, section="bar"):
+    class BarConfig:
         bim: float
         foo: FooConfig = FooConfig()
 
     @attr.s(auto_attribs=True, kw_only=True)
-    class BimConfig(Config, section="bim"):
+    class BimConfig:
         bar: BarConfig
         bam: bool = config.bool_var()
         bum: int = config.var(123)
@@ -65,7 +48,7 @@ async def test_config_source_schematize(mocker, cmps):
     )
 
     cfg = config.ConfigSource(*sources, env_prefix="PREFIX")
-    foo_config = await adapters.nject(FooConfig, source=cfg)
+    # foo_config = await adapters.nject(FooConfig, source=cfg)
 
     bar = cfg.load(BarConfig, "bar")
     foo = cfg.load(FooConfig, "foo")
@@ -76,6 +59,55 @@ async def test_config_source_schematize(mocker, cmps):
         FooConfig(bar="value", foobar=123.5, baz=True),
         BimConfig(bar=BarConfig(bim=1.23), bam=True, lst=[1, 2, 3]),
     )
+
+
+@pytest.mark.asyncio
+async def test_config_generic_adapter(mocker):
+    import attr
+    import typing
+    from buvar import config, di
+
+    mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
+
+    @attr.s(auto_attribs=True)
+    class FooConfig(config.Config, section="foo"):
+        bar: str = "default"
+        foobar: float = 9.87
+        baz: bool = config.bool_var(default=False)
+
+    @attr.s(auto_attribs=True)
+    class BarConfig(config.Config, section="bar"):
+        bim: float
+        foo: FooConfig = FooConfig()
+
+    @attr.s(auto_attribs=True, kw_only=True)
+    class BimConfig(config.Config, section="bim"):
+        bar: BarConfig
+        bam: bool = config.bool_var()
+        bum: int = config.var(123)
+        lst: typing.List = config.var(list)
+
+    sources = [
+        {"bar": {"bim": "123.4", "foo": {"bar": "1.23", "baz": "true"}}},
+        {"foo": {"bar": "value", "foobar": 123.5, "baz": True}},
+        {
+            "bar": {"bim": "123.4"},
+            "bim": {"bar": {"bim": 1.23}, "bam": "on", "lst": [1, 2, 3]},
+        },
+    ]
+
+    mocker.patch(
+        "os.environ",
+        {
+            "PREFIX_BAR_BIM": "0",
+            "PREFIX_BAR_FOO_FOOBAR": "7.77",
+            "PREFIX_BAR_FOO_BAZ": "false",
+        },
+    )
+
+    cfg = config.ConfigSource(*sources, env_prefix="PREFIX")
+    foo_config = await di.nject(FooConfig, source=cfg)
+    assert foo_config == FooConfig(bar="value", foobar=123.5, baz=True)
 
 
 def test_load_general_config():

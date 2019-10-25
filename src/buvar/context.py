@@ -5,6 +5,7 @@ import sys
 
 from . import components
 
+
 BUVAR_CONTEXT_ATTR = "__buvar_context__"
 
 PY37 = sys.version_info >= (3, 7)

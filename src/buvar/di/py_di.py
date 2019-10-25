@@ -187,12 +187,13 @@ class Adapters:
         """Register a class or function to adapt arguments either into its
         class or return type"""
         frame = sys._getframe(1)
-        spec = inspect.getfullargspec(func)
         # remove self arg
         if inspect.isclass(func):
+            spec = inspect.getfullargspec(func.__init__)
             spec.args.pop(0)
             implements = func
         else:
+            spec = inspect.getfullargspec(func)
             implements = spec.annotations["return"]
         # all arguments must be annotated
         assert_annotated(spec)
@@ -224,7 +225,8 @@ class Adapters:
             cmps.add(dep)
 
         # add current context
-        cmps = cmps.push(*context.current_context().stack)
+        current_context = context.current_context()
+        cmps = cmps.push(*current_context.stack or [])
 
         # add default named dependencies
         cmps = cmps.push()

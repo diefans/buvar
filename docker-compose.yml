@@ -4,7 +4,7 @@ volumes: {}
 
 services:
   manylinux2010:
-    image: quay.io/pypa/manylinux2010_x86_64
+    image: quay.io/pypa/manylinux2010_x86_64:latest
     user: root
     environment:
       PLAT: manylinux2010_x86_64

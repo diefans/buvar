@@ -19,7 +19,7 @@ for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
 done
 
 # repair wheels
-for WHL in ./wheelhouse/*.whl; do
+for WHL in ./wheelhouse/${PROJECT}-*.whl; do
     auditwheel repair "${WHL}" --plat ${PLATFORM} -w ./wheelhouse/
 done
 

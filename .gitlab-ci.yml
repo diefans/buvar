@@ -17,6 +17,11 @@ tests_python_37:
   <<: *tests
   image: diefans/python3.7-alpine-cython:0.1.0
 
+# failing: https://github.com/Tinche/cattrs/issues/46
+#tests_python_38:
+#  <<: *tests
+#  image: diefans/python3.8-alpine-cython:0.1.0
+
 
 .wheels: &wheels
   stage: wheels
@@ -30,6 +35,12 @@ tests_python_37:
     paths:
       - dist
     expire_in: 30 mins
+
+#wheels_python38_x86_64:
+#  <<: *wheels
+#  variables:
+#    PLAT: manylinux2010_x86_64
+#    PYTHON_VERSIONS: cp38-cp38
 
 wheels_python37_x86_64:
   <<: *wheels

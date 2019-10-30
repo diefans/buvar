@@ -1,5 +1,4 @@
 """Main entry point to run the server."""
-import asyncio
 import os
 import sys
 import typing

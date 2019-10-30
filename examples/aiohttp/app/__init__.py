@@ -34,7 +34,7 @@ def json_response(
     )
 
 
-@di.register
+@di.adapter
 @attr.s(auto_attribs=True)
 class Something:
     component: "SomeComponent"
@@ -46,7 +46,7 @@ class Something:
         return attr.asdict(self)
 
 
-@di.register
+@di.adapter
 class SomeService:
     def __init__(self, request: aiohttp.web.Request, something: Something = None):
         # something gets temporarily resolved

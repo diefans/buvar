@@ -73,69 +73,47 @@ def test_run_iterable(event_loop):
     assert state == {"a": True, "b": True}
 
 
-def test_run_server(event_loop, caplog, cmps):
-    import asyncio
+def test_plugin_error(event_loop):
     from buvar import plugin, context
 
-    async def stop_server_on_start():
-        fut_server = context.get(asyncio.Future, name="server")
-        evt_server_started = context.get(asyncio.Event, name="server_started")
-        asyncio.wait_for(evt_server_started.wait(), 1)
-        fut_server.cancel()
-        await fut_server
-        assert "Server stopped" in caplog.text
-
-    async def test_plugin(include):
-        await include("tests.server_plugin")
-        yield stop_server_on_start()
-
-    plugin.run(test_plugin, components=cmps, loop=event_loop)
-    assert "Server started" in caplog.text
-
-
-def test_plugin_error(event_loop):
-    from buvar import plugin
+    state = {}
 
     async def broken_plugin():
+        async def teardown_task():
+            state["teardown_task"] = True
+
+        teardown = context.get(plugin.Teardown)
+        teardown.add(teardown_task())
+
         raise Exception("Plugin is broken")
 
     with pytest.raises(Exception) as e:
         plugin.run(broken_plugin, loop=event_loop)
         assert e.error.args == ("Plugin is broken",)
+    assert state == {"teardown_task": True}
 
 
-def test_cancel_main_task(event_loop, cmps):
+def test_cancel_staging(event_loop, cmps):
     import asyncio
     from buvar import plugin
 
     state = {}
 
     async def server_plugin():
-        evt_cancel_main_task = cmps.get(plugin.CancelMainTask)
+        cancel_staging = cmps.get(plugin.CancelStaging)
 
         async def server():
+            # shutdown
+            cancel_staging.set()
             try:
-                state["server"] = True
-                evt_cancel_main_task.set()
                 await asyncio.Future()
             except asyncio.CancelledError:
-                assert True
-            else:
-                assert False
+                state["cancelled"] = True
 
         yield server()
 
-        evt_plugins_loaded = cmps.get(plugin.PluginsLoaded)
-
-        async def wait_for_plugins_loaded():
-            await evt_plugins_loaded.wait()
-            # shutdown
-            evt_cancel_main_task.set()
-
-        # yield wait_for_plugins_loaded()
-
     plugin.run(server_plugin, components=cmps, loop=event_loop)
-    assert state == {"server": True}
+    assert state == {"cancelled": True}
 
 
 def test_resolve_dotted_name():
@@ -168,7 +146,7 @@ def test_resolve_plugin_not_async(event_loop):
 
 
 def test_subtask(event_loop, cmps):
-    from buvar import plugin, components, context
+    from buvar import plugin, context
 
     state = {}
 
@@ -189,3 +167,31 @@ def test_subtask(event_loop, cmps):
     plugin.run(test_plugin, components=cmps, loop=event_loop)
 
     assert state == {"plugin": True, "task": True, "teardown_task": True}
+
+
+def test_broken_task(event_loop):
+    import asyncio
+    from buvar import plugin, context
+
+    state = {}
+
+    async def broken_plugin():
+        async def teardown_task():
+            state["teardown_task"] = True
+
+        teardown = context.get(plugin.Teardown)
+        teardown.add(teardown_task())
+
+        async def task():
+            await asyncio.Future()
+
+        async def broken_task():
+            raise Exception("Task is broken")
+
+        yield task()
+        yield broken_task()
+
+    with pytest.raises(Exception) as e:
+        plugin.run(broken_plugin, loop=event_loop)
+        assert e.error.args == ("Task is broken",)
+    assert state == {"teardown_task": True}

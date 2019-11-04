@@ -6,6 +6,7 @@ import attr
 import cattr
 import structlog
 import tomlkit
+import typing_inspect
 
 from . import di
 
@@ -144,10 +145,6 @@ class Config:
         return config
 
 
-def isattrs(obj):
-    return hasattr(obj, "__attrs_attrs__")
-
-
 def merge_dict(dest, source):
     """Merge `source` into `dest`.
 
@@ -163,27 +160,10 @@ def merge_dict(dest, source):
     return dest
 
 
-def isunion(hint):
-    origin = getattr(hint, "__origin__", None)
-    return origin is typing.Union
-
-
-def isoptional(hint):
-    return (
-        isunion(hint)
-        and len(hint.__args__) == 2
-        and type(None) in hint.__args__  # noqa: C0123
-    )
-
-
-def optional_type(hint):
-    return hint.__args__[0]
-
-
 def schematize(attrs, source, env_prefix=""):
     """Create a scheme from the source dict and apply environment vars."""
     attrs_kwargs = {}
-    assert isattrs(attrs), f"{attrs} must be attrs decorated"
+    assert attr.has(attrs), f"{attrs} must be attrs decorated"
     for attrib in attrs.__attrs_attrs__:
         hints = typing.get_type_hints(attrs)
         a_type = attrib.type
@@ -191,14 +171,13 @@ def schematize(attrs, source, env_prefix=""):
         a_hint = hints[a_name]
         env_name = "_".join(part for part in (env_prefix, a_name.upper()) if part)
         try:
-            if isattrs(a_type):
+            if attr.has(a_type):
                 a_value = schematize(a_type, source[a_name], env_prefix=env_name)
             else:
                 a_value = os.environ.get(env_name, source.get(a_name, missing))
 
                 if a_value is missing:
-                    if isoptional(a_hint):
-                        # a_type = optional_type(a_type)
+                    if typing_inspect.is_optional_type(a_hint):
                         a_value = None
                     else:
                         if attrib.default is missing:
@@ -222,7 +201,7 @@ def generate_env_help(attrs, env_prefix=""):
     help = "\n".join(  # noqa: W0622
         "_".join((env_prefix,) + path if env_prefix else path).upper()
         for path, attrib in traverse_attrs(attrs)
-        if not isattrs(attrib)
+        if not attr.has(attrib)
     )
     return help
 
@@ -237,7 +216,7 @@ def generate_toml_help(attrs, env_prefix="", parent=None):
 
     for attrib in attrs.__attrs_attrs__:
         meta = attrib.metadata.get(CNF_KEY)
-        if isattrs(attrib.type):
+        if attr.has(attrib.type):
             # yield (attrib.name,), attrib
             sub_doc = generate_toml_help(attrib.type)
             parent.add(attrib.name, sub_doc)
@@ -261,7 +240,7 @@ def generate_toml_help(attrs, env_prefix="", parent=None):
 
 def traverse_attrs(attrs, with_nodes=False):
     for attrib in attrs.__attrs_attrs__:
-        if isattrs(attrib.type):
+        if attr.has(attrib.type):
             if with_nodes:
                 yield (attrib.name,), attrib
             for path, sub_attrib in traverse_attrs(attrib.type):

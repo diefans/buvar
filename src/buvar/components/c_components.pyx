@@ -80,7 +80,7 @@ cdef class Components:
     def find(self, namespace):
         return self._find(namespace)
 
-    cdef _get(self, namespace, str name=None, default=missing):
+    cdef _get(self, namespace, name=None, default=missing):
         for namespaces in self.stack:
             try:
                 item = namespaces[namespace][name]

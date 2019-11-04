@@ -39,6 +39,16 @@ def test_components_get_basic():
     assert c.get("bar") == "foo"
 
 
+def test_components_get_bytes_name():
+    from buvar import components
+
+    c = components.Components()
+
+    c.add("foo", b"bar")
+
+    assert c.get(b"bar") == "foo"
+
+
 def test_components_no_instance():
     from buvar import components
 

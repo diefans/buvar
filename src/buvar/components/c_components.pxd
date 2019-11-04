@@ -10,4 +10,4 @@ cdef class Components:
     cpdef pop(self)
     cdef _add(self, item, namespace=*, str name=*)
     cdef dict _find(self, namespace)
-    cdef _get(self, namespace, str name=*, default=*)
+    cdef _get(self, namespace, name=*, default=*)

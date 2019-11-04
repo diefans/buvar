@@ -94,7 +94,7 @@ def add_os_pid(logger, method_name, event_dict):  # noqa
 
 
 def setup_logging(
-    tty=True,
+    tty=sys.stdout.isatty(),
     level=logging.DEBUG,
     capture_warnings=True,
     redirect_print=False,

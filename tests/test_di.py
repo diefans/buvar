@@ -254,3 +254,21 @@ async def test_adpter_class_without_init():
     foo = await adapters.nject(Foo)
 
     assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
+async def test_abc_meta_derived():
+    import abc
+    from buvar import di
+
+    adapters = di.Adapters()
+
+    class Foo(abc.ABC):
+        ...
+
+    @adapters.adapter
+    class Bar(Foo):
+        ...
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)

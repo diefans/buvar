@@ -17,7 +17,9 @@ def no_elevated_context(mocker, cmps):
 def test_run(event_loop, cmps):
     from buvar import plugin, components
 
-    result = plugin.run("tests.foo_plugin", components=cmps, loop=event_loop)
+    result = plugin.run(
+        "tests.foo_plugin", components=cmps, loop=event_loop, enable_stacking=True
+    )
     assert result == [{"foo": "foo"}, None, None]
     with pytest.raises(components.ComponentLookupError) as e:
         cmps.get("foo_plugin")

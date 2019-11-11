@@ -100,7 +100,7 @@ class Teardown:
 class Staging(Bootstrap):
     """Generate all stages to run an application."""
 
-    def __init__(self, *plugins, components=None, loop=None):
+    def __init__(self, *plugins, components=None, loop=None, enable_stacking=False):
         super().__init__(loop=loop)
         self.components = components if components is not None else Components()
 
@@ -123,7 +123,7 @@ class Staging(Bootstrap):
                 yield self.load
 
                 # elevate the context
-                self.task_factory.enable_stacking()
+                self.task_factory.enable_stacking(enable_stacking)
 
                 # stage 2: run main task and collect teardown tasks
                 results = self.loop.run_until_complete(self.run())
@@ -162,7 +162,7 @@ class Staging(Bootstrap):
         return next(self.iterator)
 
 
-def run(*plugins, components=None, loop=None):
+def run(*plugins, components=None, loop=None, enable_stacking=False):
     """Start the asyncio process by boostrapping the root plugin.
 
     We have a three phase setup:
@@ -172,7 +172,9 @@ def run(*plugins, components=None, loop=None):
 
     2. run all registered tasks together until complete
     """
-    _, result = Staging(*plugins, components=components, loop=loop)
+    _, result = Staging(
+        *plugins, components=components, loop=loop, enable_stacking=enable_stacking
+    )
     return result
 
 

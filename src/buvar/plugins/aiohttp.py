@@ -1,14 +1,27 @@
+import socket
+import typing
+
 import aiohttp.web
 import attr
+from buvar import Teardown, config, context
 import structlog
 
-from buvar import config, context, Teardown
+try:
+    from ssl import SSLContext
+except ImportError:  # pragma: no cover
+    SSLContext = typing.Any  # type: ignore
 
 
 @attr.s(auto_attribs=True)
 class AioHttpConfig:
-    host: str = "0.0.0.0"
-    port: int = 8080
+    host: typing.Optional[str] = None
+    port: typing.Optional[int] = None
+    path: typing.Optional[str] = None
+    sock: typing.Optional[socket.socket] = None
+    shutdown_timeout: float = 60.0
+    ssl_context: typing.Optional[SSLContext] = None
+    backlog: int = 128
+    handle_signals: bool = False
 
 
 class AccessLogger(aiohttp.abc.AbstractAccessLogger):  # noqa: R0903
@@ -45,7 +58,7 @@ async def plugin_server(load):
     aiohttp_config = context.add(config_source.load(AioHttpConfig, "aiohttp"))
 
     yield aiohttp.web._run_app(  # noqa: W0212
-        aiohttp_app, host=aiohttp_config.host, port=aiohttp_config.port, print=None
+        aiohttp_app, **attr.asdict(aiohttp_config), print=None
     )
 
 

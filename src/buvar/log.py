@@ -57,6 +57,10 @@ def setup_logging(
         serializer=lambda obj, **kwargs: json_dumps(stringify_dict_keys(obj), **kwargs)
     ),
 ):
+
+    if isinstance(level, str):
+        level = logging.getLevelName(level.upper())
+
     renderer = structlog.dev.ConsoleRenderer() if tty else json_renderer
     timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
     pre_chain = [

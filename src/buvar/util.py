@@ -1,6 +1,12 @@
 from functools import update_wrapper
 
 
+class adict(dict):
+    def __init__(self, *args, **kwargs):
+        super(*args, **kwargs)
+        self.__dict__ = self
+
+
 class reify:
     def __init__(self, wrapped):
         self.wrapped = wrapped

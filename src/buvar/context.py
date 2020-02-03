@@ -1,10 +1,12 @@
 """Provide a component registry as task context."""
 import asyncio
 import contextlib
+import contextvars
 import sys
 
 from . import components
 
+context = contextvars.ContextVar("buvar_context")
 
 BUVAR_CONTEXT_ATTR = "__buvar_context__"
 

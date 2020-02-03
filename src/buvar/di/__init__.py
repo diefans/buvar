@@ -25,7 +25,7 @@ try:
 except ImportError:
     from .py_di import Adapters, AdapterError  # noqa: W0611
 
-defaults_adapters = Adapters()
-adapter_classmethod = defaults_adapters.adapter_classmethod
-adapter = defaults_adapters.adapter
-nject = defaults_adapters.nject
+default_adapters = Adapters()
+adapter_classmethod = default_adapters.adapter_classmethod
+adapter = default_adapters.adapter
+nject = default_adapters.nject

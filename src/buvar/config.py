@@ -139,7 +139,7 @@ class Config:
         cls.__buvar_config_section__ = section
         cls.__buvar_config_sections__[section] = cls
 
-    @di.adapter_classmethod
+    @classmethod
     async def adapt(cls: typing.Type[ConfigType], source: ConfigSource) -> ConfigType:
         config = source.load(cls, cls.__buvar_config_section__)
         return config
@@ -274,3 +274,7 @@ def trim(docstring):
         trimmed.pop(0)
     # Return a single string:
     return "\n".join(trimmed)
+
+
+async def plugin():
+    di.register(Config.adapt)

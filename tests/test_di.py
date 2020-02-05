@@ -1,28 +1,146 @@
-import sys
-
 import pytest
 
 
 @pytest.fixture
-def event_loop(event_loop):
-    from buvar import context, components
+def adapters():
+    from buvar.di import Adapters
 
-    cmps = components.Components()
-    context.set_task_factory(cmps, loop=event_loop)
-    return event_loop
+    return Adapters()
+
+
+def test_adapters_register_generic_factory(adapters):
+    import typing
+
+    FooType = typing.TypeVar("FooType", bound="Foo")
+
+    class Foo:
+        @classmethod
+        async def generic_adapt(cls: typing.Type[FooType]) -> FooType:
+            return cls()
+
+    adapters.register(Foo.generic_adapt)
+    assert [Foo.generic_adapt] == [
+        adapter.impl for adapter in adapters["generic_index"][Foo]
+    ]
+
+
+def test_adapters_register_class(adapters):
+    class Bar:
+        def __init__(self):
+            ...
+
+    adapters.register(Bar)
+    assert [Bar] == [adapter.impl for adapter in adapters["index"][Bar]]
+
+
+def test_adapters_register_classmethod(adapters):
+    class Bar:
+        @classmethod
+        def adapt(cls) -> "Bar":
+            return cls()
+
+    adapters.register(Bar.adapt)
+    assert [Bar.adapt] == [adapter.impl for adapter in adapters["index"][Bar]]
+
+
+def test_adapters_register_func(adapters):
+    class Bar:
+        ...
+
+    def foo_adapter() -> Bar:
+        return Bar()
+
+    adapters.register(foo_adapter)
+    assert [foo_adapter] == [adapter.impl for adapter in adapters["index"][Bar]]
+
+
+@pytest.mark.asyncio
+async def test_nject_generic_factory(adapters):
+    import typing
+
+    FooType = typing.TypeVar("FooType", bound="Foo")
+
+    class Foo:
+        @classmethod
+        async def adapt(cls: typing.Type[FooType]) -> FooType:
+            return cls()
+
+    class Bar(Foo):
+        pass
+
+    adapters.register(Foo.adapt)
+
+    bar = await adapters.nject(Bar)
+    assert isinstance(bar, Bar)
+
+
+@pytest.mark.asyncio
+async def test_nject_classmethod(adapters):
+    class Foo:
+        @classmethod
+        async def adapt(cls) -> "Foo":
+            return cls()
+
+    adapters.register(Foo.adapt)
+
+    foo = await adapters.nject(Foo)
+    assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
+async def test_nject_class(adapters):
+    class Foo:
+        ...
+
+    adapters.register(Foo)
+
+    foo = await adapters.nject(Foo)
+    assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
+async def test_nject_func(adapters):
+    class Foo:
+        ...
+
+    async def adapt_foo() -> Foo:
+        return Foo()
+
+    adapters.register(adapt_foo)
+
+    foo = await adapters.nject(Foo)
+    assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
+async def test_nject_optional(adapters):
+    import typing
+
+    class Bar:
+        ...
+
+    class Foo:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+    async def adapt_foo(bar: typing.Optional[Bar] = None) -> Foo:
+        return Foo(bar=bar)
+
+    adapters.register(adapt_foo)
+
+    foo = await adapters.nject(Foo)
+    assert foo.kwargs["bar"] is None
 
 
 @pytest.mark.benchmark(group="nject")
-def test_di_nject(event_loop, benchmark):
-    from buvar import context, di
-
-    adapters = di.Adapters()
+def test_di_nject(event_loop, benchmark, adapters, context_task_factory):
+    from buvar import context
 
     class Foo(dict):
         def __init__(self, name=None):
             super().__init__(name=name, foo=True)
 
-    @adapters.adapter
     class Bar(dict):
         def __init__(self, bar: Foo):
             super().__init__(foo=bar, bar=True)
@@ -38,11 +156,12 @@ def test_di_nject(event_loop, benchmark):
         def __init__(self):
             super().__init__(bum=True)
 
-    @adapters.adapter
     async def baz_adapter(
         bar: Bar, bam: Foo = 1, bim: Bim = "default", *, bum: Bum, foo: Foo = None
     ) -> Baz:
         return Baz(foo=foo, bam=bam, bim=bim, bar=bar, bum=bum)
+
+    adapters.register(Bar, baz_adapter)
 
     async def test():
         context.add(Foo())
@@ -66,42 +185,8 @@ def test_di_nject(event_loop, benchmark):
     benchmark(bench)
 
 
-@pytest.mark.asyncio
-async def test_di_adapter():
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    class Bar:
-        @adapters.adapter_classmethod
-        def adapt(cls) -> "Bar":
-            assert cls == Bar
-            return cls()
-
-    @adapters.adapter
-    class Foo:
-        def __init__(self, bar: Bar):
-            self.bar = bar
-
-        @adapters.adapter_classmethod
-        def adapt(cls, bar: Bar) -> "Foo":
-            return cls(bar)
-
-    @adapters.adapter
-    def adapt(bar: Bar) -> Foo:
-        return Foo(bar)
-
-    _ = await adapters.nject(Bar)
-    _ = await adapters.nject(Foo)
-    assert set(adapters.index) == {"Foo", Foo, "Bar", Bar}
-
-
-@pytest.mark.benchmark(group="readme")
-def test_readme(event_loop, benchmark):
-    from buvar import di
-
-    adapters = di.Adapters()
-
+@pytest.mark.benchmark(group="nject_2")
+def test_nject_2(event_loop, benchmark, adapters):
     class Bar:
         pass
 
@@ -109,14 +194,15 @@ def test_readme(event_loop, benchmark):
         def __init__(self, bar: Bar = None):
             self.bar = bar
 
-        @adapters.adapter_classmethod
+        @classmethod
         async def adapt_classmethod(cls, baz: str) -> "Foo":
             return Foo()
 
-    @adapters.adapter
     async def adapt(bar: Bar) -> Foo:
         foo = Foo(bar)
         return foo
+
+    adapters.register(Foo.adapt_classmethod, adapt)
 
     async def test():
         foo = await adapters.nject(Foo, baz="baz")
@@ -132,143 +218,17 @@ def test_readme(event_loop, benchmark):
     benchmark(bench)
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7),
-    reason="similar to https://github.com/python/typing/issues/506",
-)
 @pytest.mark.asyncio
-async def test_generic_classmethod_1():
-    import typing
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    FooType = typing.TypeVar("FooType", bound="Foo")
-
-    class Foo(typing.Generic[FooType]):
-        @adapters.adapter_classmethod
-        async def adapt(cls: typing.Type[FooType]) -> FooType:
-            return cls()
-
-    class Bar(Foo):
-        pass
-
-    bar = await adapters.nject(Bar)
-    assert isinstance(bar, Bar)
-
-
-@pytest.mark.asyncio
-async def test_generic_classmethod_2():
-    import typing
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    FooType = typing.TypeVar("FooType", bound="Foo")
-
-    class Foo:
-        @adapters.adapter_classmethod
-        async def adapt(cls: typing.Type[FooType]) -> FooType:
-            return cls()
-
-    class Bar(Foo):
-        pass
-
-    bar = await adapters.nject(Bar)
-    assert isinstance(bar, Bar)
-
-
-@pytest.mark.asyncio
-async def test_generic_classmethod_3():
-    import typing
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    FooType = typing.TypeVar("FooType", bound="Foo")
-
-    class Foo:
-        @adapters.adapter_classmethod
-        async def adapt(cls) -> FooType:
-            return cls()
-
-    class Bar(Foo):
-        pass
-
-    bar = await adapters.nject(Bar)
-    assert isinstance(bar, Bar)
-
-
-@pytest.mark.asyncio
-async def test_generic_classmethod_4():
-    import typing
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    FooType = typing.TypeVar("FooType")
-
-    with pytest.raises(RuntimeError):
-
-        class Foo:
-            @adapters.adapter_classmethod
-            async def adapt(cls) -> FooType:
-                return cls()
-
-
-@pytest.mark.skipif(
-    sys.version_info < (3, 7),
-    reason="similar to https://github.com/python/typing/issues/506",
-)
-@pytest.mark.asyncio
-async def test_generic_classmethod_5():
-    import typing
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    FooType = typing.TypeVar("FooType")
-
-    class Foo(typing.Generic[FooType]):
-        @adapters.adapter_classmethod
-        async def adapt(cls) -> FooType:
-            return cls()
-
-    class Bar(Foo):
-        pass
-
-    bar = await adapters.nject(Bar)
-    assert isinstance(bar, Bar)
-
-
-@pytest.mark.asyncio
-async def test_adpter_class_without_init():
-    from buvar import di
-
-    adapters = di.Adapters()
-
-    @adapters.adapter
-    class Foo:
-        ...
-
-    foo = await adapters.nject(Foo)
-
-    assert isinstance(foo, Foo)
-
-
-@pytest.mark.asyncio
-async def test_abc_meta_derived():
+async def test_abc_meta_derived(adapters):
     import abc
-    from buvar import di
-
-    adapters = di.Adapters()
 
     class Foo(abc.ABC):
         ...
 
-    @adapters.adapter
     class Bar(Foo):
         ...
+
+    adapters.register(Bar)
 
     bar = await adapters.nject(Bar)
     assert isinstance(bar, Bar)

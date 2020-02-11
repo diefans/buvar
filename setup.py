@@ -44,7 +44,7 @@ class InstallPlatlib(install):
 
 install_requires = [
     "attrs>=19.1,<20.0",
-    "cattrs>=0.9,<1.0",
+    "cattrs>=1.0,<2.0",
     "multidict>=4.5,<5.0",
     "structlog>=19.1,<20.0",
     "toml>=0.10,<0.11",
@@ -52,7 +52,7 @@ install_requires = [
     "typing_inspect>=0.4.0<0.5",
 ]
 
-entry_points = {"console_scripts": ["buvar = buvar.cli:main"]}
+entry_points = {}  # {"console_scripts": ["buvar = buvar.cli:main"]}
 
 setup_kwargs = {
     "name": "buvar",
@@ -61,7 +61,7 @@ setup_kwargs = {
     "long_description": None,
     "author": "Oliver Berger",
     "author_email": "diefans@gmail.com",
-    "url": None,
+    "url": "https://gitlab.com/diefans/buvar",
     "package_dir": {"": "src"},
     "packages": find_packages("src"),
     # "package_data": {"": ["*"]},
@@ -83,7 +83,14 @@ setup_kwargs = {
         "all": ["aiohttp"],
     },
     "entry_points": entry_points,
-    "python_requires": ">=3.6,<4.0",
+    "python_requires": ">=3.7,<4.0",
+    "classifiers": [
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Framework :: AsyncIO",
+        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: MIT License",
+    ],
     "cmdclass": {"install": InstallPlatlib, "bdist_wheel": bdist_wheel},
     "distclass": BinaryDistribution,
 }

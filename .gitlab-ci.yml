@@ -9,18 +9,18 @@ stages:
     - pip install .[all,tests]
     - pytest
 
-tests_python_36:
-  <<: *tests
-  image: diefans/python3.6-alpine-cython:0.1.0
+#tests_python_36:
+#  <<: *tests
+#  image: diefans/python3.6-alpine-cython:0.1.0
 
 tests_python_37:
   <<: *tests
   image: diefans/python3.7-alpine-cython:0.1.0
 
 # failing: https://github.com/Tinche/cattrs/issues/46
-#tests_python_38:
-#  <<: *tests
-#  image: diefans/python3.8-alpine-cython:0.1.0
+tests_python_38:
+  <<: *tests
+  image: diefans/python3.8-alpine-cython:0.1.0
 
 
 .wheels: &wheels
@@ -36,11 +36,11 @@ tests_python_37:
       - dist
     expire_in: 30 mins
 
-#wheels_python38_x86_64:
-#  <<: *wheels
-#  variables:
-#    PLAT: manylinux2010_x86_64
-#    PYTHON_VERSIONS: cp38-cp38
+wheels_python38_x86_64:
+  <<: *wheels
+  variables:
+    PLAT: manylinux2010_x86_64
+    PYTHON_VERSIONS: cp38-cp38
 
 wheels_python37_x86_64:
   <<: *wheels
@@ -48,8 +48,8 @@ wheels_python37_x86_64:
     PLAT: manylinux2010_x86_64
     PYTHON_VERSIONS: cp37-cp37m
 
-wheels_python36_x86_64:
-  <<: *wheels
-  variables:
-    PLAT: manylinux2010_x86_64
-    PYTHON_VERSIONS: cp36-cp36m
+#wheels_python36_x86_64:
+#  <<: *wheels
+#  variables:
+#    PLAT: manylinux2010_x86_64
+#    PYTHON_VERSIONS: cp36-cp36m

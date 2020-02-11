@@ -6,7 +6,7 @@ set -e -x
 : ${PROJECT:=buvar}
 : ${PYTHON_VERSIONS:=$(cat <<EOF
 cp37-cp37m
-cp36-cp36m
+cp38-cp38
 EOF
 )}
 

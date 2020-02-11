@@ -1,2 +1,5 @@
-async def plugin(include):
-    await include('....not.found')
+from buvar import plugin
+
+
+async def plugin(include: plugin.Loader):
+    await include("....not.found")

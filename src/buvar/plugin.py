@@ -3,13 +3,14 @@
     >>> components = Components()
     >>> loop = asyncio.get_event_loop()
     >>> state = {}
-    >>> async def plugin(load):
+    >>> async def plugin(load: Loader):
     ...     async def some_task():
     ...         state['task'] = True
     ...     yield some_task()
 
 
-    >>> stages = Staging(components=components, loop=loop)
+    >>> staging = Staging(components=components, loop=loop)
+    >>> stages = staging.evolve()
     >>> load = next(stages)
     >>> load(plugin)
 
@@ -22,9 +23,12 @@
     >>> assert state == {'task': True}
 
 
-    >>> stages = Staging(plugin, components=components, loop=loop)
-    >>> for stage in stages:
+    >>> state = {}
+    >>> staging = Staging(components=components, loop=loop)
+    >>> for stage in staging.evolve(plugin):
     ...     pass
+
+    >>> assert state == {'task': True}
 """
 import asyncio
 import collections
@@ -32,6 +36,7 @@ import collections.abc
 import importlib
 import inspect
 import itertools
+import typing
 
 import structlog
 
@@ -46,42 +51,6 @@ sl = structlog.get_logger()
 
 class CancelStaging(asyncio.Event):
     pass
-
-
-class Bootstrap:
-    """Maintain the plugin loading state."""
-
-    def __init__(self, *, loop=None):
-        self.plugin_tasks = collections.OrderedDict()
-        self.loop = loop or asyncio.get_event_loop()
-
-    async def load(self, plugin):
-        """Hook the plugin from another plugin.
-
-        The plugin may return an awaitable, an iterable of awaitable or an
-        asyncgenerator of awaitables.
-
-        :param plugin: the plugin to load
-        :type plugin: a callable which may have one argument, receiving the
-        include callback
-        """
-        plugin = resolve_plugin(plugin)
-        if plugin not in self.plugin_tasks:
-            # mark plugin as loaded for recursive circular stuff
-            self.plugin_tasks[plugin] = []
-            # load plugin
-            spec = inspect.getfullargspec(plugin)
-            result = plugin(self.load) if len(spec.args) == 1 else plugin()
-            callables = [fun async for fun in generate_async_result(result)]
-            self.plugin_tasks[plugin].extend(callables)
-
-    async def load_plugins(self, *plugins):
-        """Load a plugin."""
-        for plugin in plugins:
-            await self.load(plugin)
-
-    def tasks(self):
-        return iter(itertools.chain(*self.plugin_tasks.values()))
 
 
 class Teardown:
@@ -101,13 +70,57 @@ class Teardown:
         await asyncio.gather(*self)
 
 
-class Staging(Bootstrap):
+class Loader:
+    """Load plugins and collect tasks."""
+
+    def __init__(self):
+        self._tasks = collections.OrderedDict()
+
+    @property
+    def tasks(self):
+        return iter(itertools.chain(*self._tasks.values()))
+
+    async def __call__(self, *plugins):
+        """Hook the plugin from another plugin.
+
+        The plugin may return an awaitable, an iterable of awaitable or an
+        asyncgenerator of awaitables.
+
+        :param plugins: the plugin to load
+        :type plugins: list of callables which may have one argument
+        """
+        for plugin in plugins:
+            plugin = resolve_plugin(plugin)
+            if plugin not in self._tasks:
+                # mark plugin as loaded for recursive circular stuff
+                self._tasks[plugin] = []
+                # load plugin
+                args = collect_plugin_args(plugin)
+                try:
+                    result = plugin(**args)
+                except TypeError as ex:
+                    raise TypeError(*ex.args, plugin.__module__, plugin.__name__)
+                callables = [fun async for fun in generate_async_result(result)]
+                self._tasks[plugin].extend(callables)
+
+
+class Staging:
     """Generate all stages to run an application."""
 
-    def __init__(self, components=None, loop=None, enable_stacking=False):
-        super().__init__(loop=loop)
+    def __init__(
+        self,
+        *,
+        components=None,
+        loader=None,
+        adapters=None,
+        loop=None,
+        enable_stacking=False,
+    ):
+        self.components = components or Components()
+        self.adapters = self.components.add(adapters or di.Adapters())
+        self.loader = self.components.add(loader or Loader())
+        self.loop = loop or asyncio.get_event_loop()
         self.enable_stacking = enable_stacking
-        self.components = components if components is not None else Components()
 
         # set task factory to serve our components context
         self.task_factory = context.set_task_factory(self.components, loop=self.loop)
@@ -118,12 +131,10 @@ class Staging(Bootstrap):
         # provide a collection for teardown tasks
         self.teardown = self.components.add(Teardown())
 
-        self.adapters = self.components.add(di.Adapters())
-
     async def run(self):
         # elevate the context
         self.task_factory.enable_stacking(self.enable_stacking)
-        fut_tasks = asyncio.ensure_future(asyncio.gather(*self.tasks()))
+        fut_tasks = asyncio.ensure_future(asyncio.gather(*self.loader.tasks))
         # stop staging if we finish in any way
         fut_tasks.add_done_callback(lambda fut_tasks: self.evt_cancel_main_task.set())
 
@@ -141,21 +152,19 @@ class Staging(Bootstrap):
         else:
             return fut_tasks.result()
 
-    def evolve(self, *plugins, loop=None):
-        if loop is None:
-            loop = asyncio.get_event_loop()
-
+    def evolve(self, *plugins):
         try:
             # stage 1: bootstrap plugins
-            loop.run_until_complete(self.load_plugins(*plugins))
-            yield self.load_plugins
+            self.loop.run_until_complete(self.loader(*plugins))
+            # we yield a synchronous loader
+            yield lambda *plugins: self.loop.run_until_complete(self.loader(*plugins))
 
             # stage 2: run main task and collect teardown tasks
-            results = loop.run_until_complete(self.run())
+            results = self.loop.run_until_complete(self.run())
             yield results
         finally:
             # stage 3: teardown
-            loop.run_until_complete(self.teardown.wait())
+            self.loop.run_until_complete(self.teardown.wait())
 
 
 def run(*plugins, components=None, loop=None, enable_stacking=False):
@@ -173,18 +182,14 @@ def run(*plugins, components=None, loop=None, enable_stacking=False):
         loop = asyncio.get_event_loop()
 
     staging = Staging(components=components, loop=loop, enable_stacking=enable_stacking)
-    # list(staging.evolve(*plugins, loop=loop))
+    _, result = staging.evolve(*plugins)
+    return result
 
-    try:
-        # stage 1: bootstrap plugins
-        loop.run_until_complete(staging.load_plugins(*plugins))
 
-        # stage 2: run main task and collect teardown tasks
-        results = loop.run_until_complete(staging.run())
-        return results
-    finally:
-        # stage 3: teardown
-        loop.run_until_complete(staging.teardown.wait())
+def collect_plugin_args(plugin):
+    hints = typing.get_type_hints(plugin)
+    args = {name: context.get(cls) for name, cls in hints.items()}
+    return args
 
 
 def resolve_plugin(plugin, function_name=PLUGIN_FUNCTION_NAME):

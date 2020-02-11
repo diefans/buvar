@@ -1,4 +1,4 @@
-from buvar import context
+from buvar import context, plugin
 
 
 async def bar():
@@ -14,7 +14,7 @@ async def bam():
     pass
 
 
-async def plugin_bar(include):
+async def plugin_bar(include: plugin.Loader):
     context.add("bar", "bar")
     yield bar()
     yield baz()

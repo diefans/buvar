@@ -101,7 +101,7 @@ async def buvar_staged(request, staging):
     )
     try:
         # stage 1: bootstrap plugins
-        await staging.load_plugins(*plugins)
+        await staging.loader(*plugins)
 
         # stage 2: run main task and collect teardown tasks
         fut_run = asyncio.ensure_future(staging.run())

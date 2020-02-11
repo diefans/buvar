@@ -208,7 +208,7 @@ class Adapters(dict, AdaptersImpl):
             adapter.register(self)
 
 
-def get_annotations(impl, *, frame):
+def get_annotations(impl, *, frame=None):
     args = util.adict()
     args.hints = typing.get_type_hints(
         impl, frame.f_globals if frame else None, frame.f_locals if frame else None

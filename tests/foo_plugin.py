@@ -1,4 +1,4 @@
-from buvar import context
+from buvar import context, plugin
 
 
 async def foo():
@@ -7,7 +7,7 @@ async def foo():
     return ctx
 
 
-async def plugin(include):
+async def plugin(include: plugin.Loader):
     await include(".bar_plugin:plugin_bar")
     context.add("foo", name="foo")
 

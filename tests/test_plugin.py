@@ -33,12 +33,10 @@ def test_run_relative_out_of_packages(event_loop):
         plugin.run("tests.baz_plugin", loop=event_loop)
 
 
-def test_run_get_event_loop(event_loop, mocker):
+def test_run_with_loader(event_loop, mocker):
     from buvar import plugin
 
-    mocker.patch.object(plugin.asyncio, "get_event_loop").return_value = event_loop
-
-    async def test_plugin():
+    async def test_plugin(load: plugin.Loader):
         pass
 
     plugin.run(test_plugin)
@@ -49,7 +47,7 @@ def test_run_load_twice(event_loop):
 
     loaded = {}
 
-    async def test_plugin(include):
+    async def test_plugin(include: plugin.Loader):
         assert not loaded
         loaded[True] = True
         await include(test_plugin)
@@ -76,15 +74,14 @@ def test_run_iterable(event_loop):
 
 
 def test_plugin_error(event_loop):
-    from buvar import plugin, context
+    from buvar import plugin
 
     state = {}
 
-    async def broken_plugin():
+    async def broken_plugin(teardown: plugin.Teardown):
         async def teardown_task():
             state["teardown_task"] = True
 
-        teardown = context.get(plugin.Teardown)
         teardown.add(teardown_task())
 
         raise Exception("Plugin is broken")
@@ -101,12 +98,10 @@ def test_cancel_staging(event_loop, cmps):
 
     state = {}
 
-    async def server_plugin():
-        cancel_staging = cmps.get(plugin.CancelStaging)
-
+    async def server_plugin(cancel: plugin.CancelStaging):
         async def server():
             # shutdown
-            cancel_staging.set()
+            cancel.set()
             try:
                 await asyncio.Future()
             except asyncio.CancelledError:
@@ -148,17 +143,16 @@ def test_resolve_plugin_not_async(event_loop):
 
 
 def test_subtask(event_loop, cmps):
-    from buvar import plugin, context
+    from buvar import plugin
 
     state = {}
 
-    async def test_plugin():
+    async def test_plugin(teardown: plugin.Teardown):
         state["plugin"] = True
 
         async def teardown_task():
             state["teardown_task"] = True
 
-        teardown = context.get(plugin.Teardown)
         teardown.add(teardown_task())
 
         async def task():
@@ -173,15 +167,14 @@ def test_subtask(event_loop, cmps):
 
 def test_broken_task(event_loop):
     import asyncio
-    from buvar import plugin, context
+    from buvar import plugin
 
     state = {}
 
-    async def broken_plugin():
+    async def broken_plugin(teardown: plugin.Teardown):
         async def teardown_task():
             state["teardown_task"] = True
 
-        teardown = context.get(plugin.Teardown)
         teardown.add(teardown_task())
 
         async def task():

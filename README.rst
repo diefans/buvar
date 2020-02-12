@@ -109,7 +109,7 @@ Dependencies are looked up in components or may be provided via, arguments.
 a config source
 ---------------
 
-:py:obj:`buvar.config.ConfigSource` is just a :py:obj:`dict`, which merges
+`buvar.config.ConfigSource` is just a `dict`, which merges
 arbitrary dicts into one. It serves a the single source of truth for
 application variability.
 
@@ -160,8 +160,8 @@ You can load a section of config values into your custom `attrs`_ class instance
 
 
 There is a shortcut to the above approach provided by
-:py:obj:`buvar.config.Config`, which requires to be subclassed from it with a
-distinct `section` attribute. If one adds a :py:obj:`buvar.config.ConfigSource`
+`buvar.config.Config`, which requires to be subclassed from it with a
+distinct `section` attribute. If one adds a `buvar.config.ConfigSource`
 component, he will receive the mapped config in one call.
 
 .. code-block:: python

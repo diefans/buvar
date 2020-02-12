@@ -1,30 +1,10 @@
 # -*- coding: utf-8 -*-
+import os
+
 from setuptools import dist, find_packages, setup
 from setuptools.command.install import install
 
 from build import build
-
-# from distutils.core import setup
-
-
-try:
-    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
-
-    class bdist_wheel(_bdist_wheel):
-        def finalize_options(self):
-            _bdist_wheel.finalize_options(self)
-            # Mark us as not a pure python package
-            self.root_is_pure = False
-
-        # def get_tag(self):
-        #     python, abi, plat = _bdist_wheel.get_tag(self)
-        #     # We don't contain any python source
-        #     python, abi = "py2.py3", "none"
-        #     return python, abi, plat
-
-
-except ImportError:
-    bdist_wheel = None
 
 
 class BinaryDistribution(dist.Distribution):
@@ -40,6 +20,10 @@ class InstallPlatlib(install):
         install.finalize_options(self)
         if self.distribution.has_ext_modules():
             self.install_lib = self.install_platlib
+
+
+with open("README.rst") as f:
+    description = f.read()
 
 
 install_requires = [
@@ -58,7 +42,7 @@ setup_kwargs = {
     "name": "buvar",
     "version": "0.21.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
-    "long_description": None,
+    "long_description": description,
     "author": "Oliver Berger",
     "author_email": "diefans@gmail.com",
     "url": "https://gitlab.com/diefans/buvar",
@@ -91,7 +75,7 @@ setup_kwargs = {
         "License :: OSI Approved :: Apache Software License",
         "License :: OSI Approved :: MIT License",
     ],
-    "cmdclass": {"install": InstallPlatlib, "bdist_wheel": bdist_wheel},
+    "cmdclass": {"install": InstallPlatlib},
     "distclass": BinaryDistribution,
 }
 build(setup_kwargs)

@@ -139,7 +139,7 @@ def test_resolve_plugin_not_async(event_loop):
     from buvar import plugin
 
     with pytest.raises(ValueError):
-        plugin.resolve_plugin(lambda: None)
+        plugin.resolve_plugin_func(lambda: None)
 
 
 def test_subtask(event_loop, cmps):

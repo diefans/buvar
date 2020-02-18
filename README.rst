@@ -50,7 +50,7 @@ You bootstrap like following:
 
 
    # you may omit include in arguments
-   async def plugin(load: plugin.Loader):
+   async def prepare(load: plugin.Loader):
        await load('.another.plugin')
 
        # create some long lasting components
@@ -100,7 +100,7 @@ Dependencies are looked up in components or may be provided via, arguments.
        foo = await di.nject(Foo, bar=bar)
        assert foo.bar is bar
 
-   async def plugin():
+   async def prepare():
        di.register(Foo.adapt)
        di.register(adapt)
 
@@ -166,8 +166,7 @@ component, he will receive the mapped config in one call.
 
 .. code-block:: python
 
-   from buvar import config
-   from buvar.plugin import Loader
+   from buvar import config, plugin
 
 
    @attr.s(auto_attribs=True)
@@ -181,7 +180,7 @@ component, he will receive the mapped config in one call.
        some: str
 
 
-   async def plugin(load: Loader):
+   async def prepare(load: plugin.Loader):
        # this would by typically placed in the main entry point
        source = context.add(config.ConfigSource(toml.load('config.toml'), env_prefix="APP"))
 

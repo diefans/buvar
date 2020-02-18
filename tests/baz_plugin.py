@@ -1,5 +1,5 @@
 from buvar import plugin
 
 
-async def plugin(include: plugin.Loader):
+async def prepare(include: plugin.Loader):
     await include("....not.found")

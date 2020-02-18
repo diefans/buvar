@@ -3,10 +3,8 @@ import typing
 import aiohttp.web
 import attr
 
-# why not use something sane?
+from buvar import context, di, plugin
 import orjson
-
-from buvar import context, di
 
 routes = aiohttp.web.RouteTableDef()
 
@@ -34,7 +32,6 @@ def json_response(
     )
 
 
-@di.adapter
 @attr.s(auto_attribs=True)
 class Something:
     component: "SomeComponent"
@@ -46,7 +43,6 @@ class Something:
         return attr.asdict(self)
 
 
-@di.adapter
 class SomeService:
     def __init__(self, request: aiohttp.web.Request, something: Something = None):
         # something gets temporarily resolved
@@ -81,7 +77,8 @@ async def index(request):
     return json_response({"hello": "world", "something": service})
 
 
-async def plugin(include):
+async def prepare(include: plugin.Loader):
+    di.register(Something, SomeService)
     await include(".server")
     app = context.get(aiohttp.web.Application)
     app.add_routes(routes)

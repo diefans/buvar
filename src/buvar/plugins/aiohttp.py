@@ -3,7 +3,7 @@ import typing
 
 import aiohttp.web
 import attr
-from buvar import Teardown, config, context
+from buvar import plugin, config, context
 import structlog
 
 try:
@@ -40,21 +40,20 @@ class AccessLogger(aiohttp.abc.AbstractAccessLogger):  # noqa: R0903
         )
 
 
-async def plugin_app():
+async def prepare_app():
     context.add(
         aiohttp.web.Application(middlewares=[aiohttp.web.normalize_path_middleware()])
     )
 
 
-async def plugin_client_session():
+async def prepare_client_session(teardown: plugin.Teardown):
     aiohttp_client_session = context.add(aiohttp.client.ClientSession())
 
-    teardown = context.get(Teardown)
     teardown.add(aiohttp_client_session.close())
 
 
-async def plugin_server(load):
-    await load(plugin_app)
+async def prepare_server(load: plugin.Loader):
+    await load(prepare_app)
     aiohttp_app = context.get(aiohttp.web.Application)
 
     config_source = context.get(config.ConfigSource)
@@ -65,6 +64,6 @@ async def plugin_server(load):
     )
 
 
-async def plugin(load):
-    await load(plugin_client_session)
-    await load(plugin_server)
+async def prepare(load: plugin.Loader):
+    await load(prepare_client_session)
+    await load(prepare_server)

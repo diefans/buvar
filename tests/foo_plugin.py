@@ -7,7 +7,7 @@ async def foo():
     return ctx
 
 
-async def plugin(include: plugin.Loader):
+async def prepare(include: plugin.Loader):
     await include(".bar_plugin:plugin_bar")
     context.add("foo", name="foo")
 

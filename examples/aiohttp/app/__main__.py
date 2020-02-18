@@ -31,10 +31,10 @@ source = cmps.add(config.ConfigSource(user_config, env_prefix="APP"))
 general_config = cmps.add(source.load(GeneralConfig))
 
 # setup structlog
-log.setup_logging(sys.stdout.isatty(), general_config.log_level)
+log.setup_logging(tty=sys.stdout.isatty(), level=general_config.log_level)
 
 sl = structlog.get_logger()
 sl.info("Starting process", pid=os.getpid())
 sl.debug("Config used", **source)
 
-plugin.run(*general_config.plugins, components=cmps)
+plugin.run(config, *general_config.plugins, components=cmps)

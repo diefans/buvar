@@ -3,7 +3,7 @@
     >>> components = Components()
     >>> loop = asyncio.get_event_loop()
     >>> state = {}
-    >>> async def plugin(load: Loader):
+    >>> async def prepare(load: Loader):
     ...     async def some_task():
     ...         state['task'] = True
     ...     yield some_task()
@@ -12,7 +12,7 @@
     >>> staging = Staging(components=components, loop=loop)
     >>> stages = staging.evolve()
     >>> load = next(stages)
-    >>> load(plugin)
+    >>> load(prepare)
 
     >>> # wait for main task to finish
     >>> tasks_results = next(stages)
@@ -25,7 +25,7 @@
 
     >>> state = {}
     >>> staging = Staging(components=components, loop=loop)
-    >>> for stage in staging.evolve(plugin):
+    >>> for stage in staging.evolve(prepare):
     ...     pass
 
     >>> assert state == {'task': True}
@@ -43,7 +43,7 @@ import structlog
 from . import context, di
 from .components import Components
 
-PLUGIN_FUNCTION_NAME = "plugin"
+PLUGIN_FUNCTION_NAME = "prepare"
 
 
 sl = structlog.get_logger()
@@ -90,7 +90,7 @@ class Loader:
         :type plugins: list of callables which may have one argument
         """
         for plugin in plugins:
-            plugin = resolve_plugin(plugin)
+            plugin = resolve_plugin_func(plugin)
             if plugin not in self._tasks:
                 # mark plugin as loaded for recursive circular stuff
                 self._tasks[plugin] = []
@@ -192,7 +192,7 @@ def collect_plugin_args(plugin):
     return args
 
 
-def resolve_plugin(plugin, function_name=PLUGIN_FUNCTION_NAME):
+def resolve_plugin_func(plugin, function_name=PLUGIN_FUNCTION_NAME):
     plugin = resolve_dotted_name(plugin)
     if inspect.ismodule(plugin):
         # apply default name

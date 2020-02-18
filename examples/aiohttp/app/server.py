@@ -33,7 +33,7 @@ async def request_context(request, handler):
         return await handler(request)
 
 
-async def plugin():
+async def prepare():
     config_source = context.get(config.ConfigSource)
     aiohttp_config = config_source.load(AioHttpConfig, "aiohttp")
     aiohttp_app = context.add(

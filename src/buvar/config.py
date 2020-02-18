@@ -276,5 +276,5 @@ def trim(docstring):
     return "\n".join(trimmed)
 
 
-async def plugin():
+async def prepare():
     di.register(Config.adapt)

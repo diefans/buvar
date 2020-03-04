@@ -1,5 +1,3 @@
-import itertools
-
 import pytest
 
 PLUGINS_MARK = "buvar_plugins"
@@ -25,18 +23,10 @@ def implementation(request, mocker):
     if request.param == "python":
         from buvar.di import py_di as di_impl
         from buvar.components import py_components as cmps_impl
-
-        # AdaptersImpl = py_di.AdaptersImpl
-        # Components = py_components.Components
-        # ComponentLookupError = py_components.ComponentLookupError
     else:
         try:
             from buvar.di import c_di as di_impl
             from buvar.components import c_components as cmps_impl
-
-            # AdaptersImpl = c_di.AdaptersImpl
-            # Components = c_components.Components
-            # ComponentLookupError = c_components.ComponentLookupError
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
             return
@@ -49,6 +39,7 @@ def implementation(request, mocker):
     mocker.patch("buvar.ComponentLookupError", cmps_impl.ComponentLookupError)
     mocker.patch("buvar.di.missing", di_impl.missing)
     mocker.patch("buvar.di.ResolveError", di_impl.ResolveError)
+    mocker.patch("buvar.context.components", cmps_impl)
     # no way to do it with mocker
     patcher = mock.patch.object(di.Adapters, "__bases__", (dict, di_impl.AdaptersImpl))
     with patcher:
@@ -57,17 +48,32 @@ def implementation(request, mocker):
 
 
 @pytest.fixture
-def components():
-    from buvar import Components
+def adapters(implementation):
+    from buvar import di
 
-    return Components()
+    adapters = di.Adapters()
+    token = di.buvar_adapters.set(adapters)
+    yield adapters
+    di.buvar_adapters.reset(token)
+
+
+@pytest.fixture(autouse=True)
+def components(implementation):
+    from buvar import context, Components
+
+    components = Components()
+    assert context.current_context()
+
+    token = context.buvar_context.set(components)
+    yield components
+    context.buvar_context.reset(token)
 
 
 @pytest.fixture
 def context_task_factory(event_loop, components):
     from buvar import context
 
-    return context.set_task_factory(components, loop=event_loop)
+    return context.set_task_factory(loop=event_loop)
 
 
 def pytest_configure(config):
@@ -79,16 +85,18 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-def staging(event_loop, components):
-    from buvar import plugin
+def pushed_context(components):
+    from buvar import context
 
-    staging = plugin.Staging(components=components, loop=event_loop)
-    return staging
+    with context.child(*(components.stack if components else ())):
+        yield
 
 
 @pytest.fixture
-async def buvar_staged(request, staging):
+@pytest.mark.usefixtures("pushed_context")
+async def buvar_staged(request):
     import asyncio
+    from buvar import plugin, context
 
     # get plugins from mark
     plugins = next(
@@ -100,14 +108,22 @@ async def buvar_staged(request, staging):
         (),
     )
     try:
+        # prepare components
+        context.add(plugin.Cancel())
+        loader = context.add(plugin.Loader())
+        teardown = context.add(plugin.Teardown())
+
         # stage 1: bootstrap plugins
-        await staging.loader(*plugins)
+        await loader(*plugins)
 
         # stage 2: run main task and collect teardown tasks
-        fut_run = asyncio.ensure_future(staging.run())
-        yield staging
+        fut_run = asyncio.create_task(plugin.run(loader.tasks))
+        yield
         fut_run.cancel()
         await fut_run
+    except Exception:
+        raise
+
     finally:
         # stage 3: teardown
-        await staging.teardown.wait()
+        await teardown.wait()

@@ -50,9 +50,9 @@ async def test_config_source_schematize(event_loop, mocker, components):
     cfg = config.ConfigSource(*sources, env_prefix="PREFIX")
     # foo_config = await adapters.nject(FooConfig, source=cfg)
 
+    bim = cfg.load(BimConfig, "bim")
     bar = cfg.load(BarConfig, "bar")
     foo = cfg.load(FooConfig, "foo")
-    bim = cfg.load(BimConfig, "bim")
 
     assert (bar, foo, bim) == (
         BarConfig(bim=0.0, foo=FooConfig(bar="1.23", foobar=7.77, baz=False)),
@@ -172,18 +172,20 @@ def test_generate_toml_help():
         bim: float
         foo: FooConfig = config.var(help="foo")
 
-    env_vars = list(config.traverse_attrs(BarConfig))
+    env_vars = {}
+    config_fields = list(config.traverse_attrs(BarConfig, target=env_vars))
 
-    assert [path for path, _ in env_vars] == [
+    assert {path for path, _, _ in config_fields} == {
+        ("foo",),
         ("bim",),
         ("foo", "string_val"),
         ("foo", "float_val"),
         ("foo", "bool_val"),
         ("foo", "int_val"),
         ("foo", "list_val"),
-    ]
+    }
 
-    help = config.generate_toml_help(BarConfig, env_prefix="PREFIX")
+    help = config.generate_toml_help(BarConfig)
     assert (
         help.as_string()
         == """# BarConfig.
@@ -241,3 +243,27 @@ def test_nested_attrs_typing():
 
     foo = source.load(Foo, "foo")
     assert foo == Foo(bars=[Bar(baz=Baz(baz="something else"))])
+
+
+def test_env_config(mocker):
+    from buvar import config
+    import attr
+
+    @attr.s(auto_attribs=True)
+    class Baz:
+        float: float
+
+    @attr.s(auto_attribs=True)
+    class Foo:
+        str: str
+        int: int
+        baz: "Baz"
+
+    @attr.s(auto_attribs=True)
+    class Bar:
+        foo: "Foo"
+
+    mocker.patch("os.environ", {"PREFIX_FOO_STR": "abc", "PREFIX_FOO_INT": "777"})
+    env_config = config.create_env_config(Bar, "PREFIX")
+
+    assert env_config == {"foo": {"baz": {}, "str": "abc", "int": "777"}}

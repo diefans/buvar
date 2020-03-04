@@ -1,82 +1,52 @@
-"""Provide a component registry as task context."""
+"""Provide a component registry as contextvar."""
 import asyncio
 import contextlib
-import sys
+import contextvars
+import functools
 
 from . import components
 
 
-class ContextError(Exception):
-    ...
+buvar_context: contextvars.ContextVar = contextvars.ContextVar(__name__)
+
+# we provide a global available context
+buvar_context.set(components.Components())
 
 
-BUVAR_CONTEXT_ATTR = "__buvar_context__"
-
-PY37 = sys.version_info >= (3, 7)
-
-if PY37:
-
-    def asyncio_current_task(loop=None):
-        """Return the current task or None."""
-        try:
-            return asyncio.current_task(loop)
-        except RuntimeError:
-            # simulate old behaviour
-            return None
-
-
-else:
-    asyncio_current_task = asyncio.Task.current_task
-
-
-class TaskFactory:
-    def __init__(self, *, root_context=None, default=None, parent_factory=None):
-        self.default = default or self.default_components_context
-        self.factory = (
-            parent_factory if parent_factory is not None else asyncio.tasks.Task
-        )
-        self.root_context = (
-            root_context if root_context is not None else components.Components()
-        )
-        self.stacking = False
-
-    def enable_stacking(self, stacking=True):
-        self.stacking = stacking
-
-    def default_components_context(self, parent_context=None):
-        """Context is always the same as the parents one."""
-        if parent_context:
-            if self.stacking:
-                stacked_context = parent_context.push()
-                return stacked_context
-            return parent_context
-        return self.root_context
+class StackingTaskFactory:
+    def __init__(self, *, parent_factory=None):
+        self.parent_factory = parent_factory
 
     def __call__(self, loop, coro):
-        context = current_context(loop=loop)
-        new_context = self.default(context)
-        task = self.factory(loop=loop, coro=coro)
+        with child():
+            task = (
+                self.parent_factory
+                if self.parent_factory is not None
+                else asyncio.tasks.Task
+            )(loop=loop, coro=coro)
+            return task
 
-        setattr(task, BUVAR_CONTEXT_ATTR, new_context)
-        return task
+    @classmethod
+    def set(cls, *, loop=None):
+        if loop is None:
+            loop = asyncio.get_event_loop()
+
+        factory = cls(parent_factory=loop.get_task_factory())
+        loop.set_task_factory(factory)
+        return factory
+
+    def reset(self, *, loop=None):
+        if loop is None:
+            loop = asyncio.get_event_loop()
+
+        loop.set_task_factory(self.parent_factory)
 
 
-def set_task_factory(components, *, loop=None):  # noqa: W0621
-    if loop is None:
-        loop = asyncio.get_event_loop()
-
-    task_factory = TaskFactory(
-        root_context=components, parent_factory=loop.get_task_factory()
-    )
-
-    loop.set_task_factory(task_factory)
-    return task_factory
+set_task_factory = StackingTaskFactory.set
 
 
-def current_context(loop=None):
-    current_task = asyncio_current_task(loop=loop)
-    context = getattr(current_task, BUVAR_CONTEXT_ATTR, None)
-    return context
+def current_context():
+    return buvar_context.get()
 
 
 def add(*args, **kwargs):
@@ -95,25 +65,25 @@ def find(*args, **kwargs):
 
 
 def push(*stack):
-    current_task = asyncio_current_task()
-    parent_context = getattr(current_task, BUVAR_CONTEXT_ATTR, None)
-    assert parent_context is not None, "There must be a context to push from."
-
+    parent_context = current_context()
     context = parent_context.push(*stack)
-    setattr(current_task, BUVAR_CONTEXT_ATTR, context)
+    token = buvar_context.set(context)
+    return functools.partial(buvar_context.reset, token)
 
 
 def pop():
-    current_task = asyncio_current_task()
-    parent_context = getattr(current_task, BUVAR_CONTEXT_ATTR, None)
-    assert parent_context is not None, "There must be a context to pop from."
-
+    parent_context = current_context()
     context = parent_context.pop()
-    setattr(current_task, BUVAR_CONTEXT_ATTR, context)
+    token = buvar_context.set(context)
+    return functools.partial(buvar_context.reset, token)
 
 
+# https://www.python.org/dev/peps/pep-0568/
+# https://stackoverflow.com/questions/53611690/how-do-i-write-consistent-stateful-context-managers
 @contextlib.contextmanager
-def child():
-    push()
-    yield
-    pop()
+def child(*stack):
+    reset = push(*stack)
+    try:
+        yield
+    finally:
+        reset()

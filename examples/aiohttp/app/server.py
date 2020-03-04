@@ -3,13 +3,13 @@ import aiohttp.web
 import attr
 import structlog
 
-from buvar import config, context
+from buvar import config, context, di
 
 sl = structlog.get_logger()
 
 
 @attr.s(auto_attribs=True)
-class AioHttpConfig:
+class AioHttpConfig(config.Config, section="aiohttp"):
     host: str = "0.0.0.0"
     port: int = 8080
 
@@ -34,8 +34,7 @@ async def request_context(request, handler):
 
 
 async def prepare():
-    config_source = context.get(config.ConfigSource)
-    aiohttp_config = config_source.load(AioHttpConfig, "aiohttp")
+    aiohttp_config = await di.nject(AioHttpConfig)
     aiohttp_app = context.add(
         aiohttp.web.Application(
             middlewares=[aiohttp.web.normalize_path_middleware(), request_context]

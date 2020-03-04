@@ -37,4 +37,4 @@ sl = structlog.get_logger()
 sl.info("Starting process", pid=os.getpid())
 sl.debug("Config used", **source)
 
-plugin.run(config, *general_config.plugins, components=cmps)
+plugin.stage(config, *general_config.plugins, components=cmps)

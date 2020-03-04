@@ -28,7 +28,7 @@ You bootstrap like following:
 
     from buvar import plugin
 
-    plugin.run("some.module.with.plugin.function")
+    plugin.stage("some.module.with.plugin.function")
 
 
 .. code-block:: python

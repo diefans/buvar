@@ -1,6 +1,5 @@
 """Very simple plugin architecture for asyncio.
 
-    >>> components = Components()
     >>> loop = asyncio.get_event_loop()
     >>> state = {}
     >>> async def prepare(load: Loader):
@@ -9,8 +8,7 @@
     ...     yield some_task()
 
 
-    >>> staging = Staging(components=components, loop=loop)
-    >>> stages = staging.evolve()
+    >>> stages = evolve()
     >>> load = next(stages)
     >>> load(prepare)
 
@@ -24,14 +22,12 @@
 
 
     >>> state = {}
-    >>> staging = Staging(components=components, loop=loop)
-    >>> for stage in staging.evolve(prepare):
+    >>> for stage in evolve(prepare):
     ...     pass
 
     >>> assert state == {'task': True}
 """
 import asyncio
-import collections
 import collections.abc
 import importlib
 import inspect
@@ -40,8 +36,7 @@ import typing
 
 import structlog
 
-from . import context, di
-from .components import Components
+from . import context
 
 PLUGIN_FUNCTION_NAME = "prepare"
 
@@ -49,7 +44,7 @@ PLUGIN_FUNCTION_NAME = "prepare"
 sl = structlog.get_logger()
 
 
-class CancelStaging(asyncio.Event):
+class Cancel(asyncio.Event):
     pass
 
 
@@ -70,15 +65,12 @@ class Teardown:
         await asyncio.gather(*self)
 
 
-class Loader:
+class Loader(dict):
     """Load plugins and collect tasks."""
-
-    def __init__(self):
-        self._tasks = collections.OrderedDict()
 
     @property
     def tasks(self):
-        return iter(itertools.chain(*self._tasks.values()))
+        return iter(itertools.chain(*self.values()))
 
     async def __call__(self, *plugins):
         """Hook the plugin from another plugin.
@@ -91,9 +83,9 @@ class Loader:
         """
         for plugin in plugins:
             plugin = resolve_plugin_func(plugin)
-            if plugin not in self._tasks:
+            if plugin not in self:
                 # mark plugin as loaded for recursive circular stuff
-                self._tasks[plugin] = []
+                self[plugin] = []
                 # load plugin
                 args = collect_plugin_args(plugin)
                 try:
@@ -101,73 +93,58 @@ class Loader:
                 except TypeError as ex:
                     raise TypeError(*ex.args, plugin.__module__, plugin.__name__)
                 callables = [fun async for fun in generate_async_result(result)]
-                self._tasks[plugin].extend(callables)
+                self[plugin].extend(callables)
 
 
-class Staging:
+def evolve(*plugins, components=None, loop=None):
     """Generate all stages to run an application."""
+    loop = loop or asyncio.get_event_loop()
+    with context.child(*(components.stack if components else ())):
+        # provide basic components
+        cancel = context.add(Cancel(loop=loop))
+        teardown = context.add(Teardown())
+        loader = context.add(Loader())
 
-    def __init__(
-        self,
-        *,
-        components=None,
-        loader=None,
-        adapters=None,
-        loop=None,
-        enable_stacking=False,
-    ):
-        self.components = components or Components()
-        self.adapters = self.components.add(adapters or di.Adapters())
-        self.loader = self.components.add(loader or Loader())
-        self.loop = loop or asyncio.get_event_loop()
-        self.enable_stacking = enable_stacking
-
-        # set task factory to serve our components context
-        self.task_factory = context.set_task_factory(self.components, loop=self.loop)
-
-        # provide cancel event
-        self.evt_cancel_main_task = self.components.add(CancelStaging(loop=self.loop))
-
-        # provide a collection for teardown tasks
-        self.teardown = self.components.add(Teardown())
-
-    async def run(self):
-        # elevate the context
-        self.task_factory.enable_stacking(self.enable_stacking)
-        fut_tasks = asyncio.ensure_future(asyncio.gather(*self.loader.tasks))
-        # stop staging if we finish in any way
-        fut_tasks.add_done_callback(lambda fut_tasks: self.evt_cancel_main_task.set())
-
-        # wait for exit
-        await self.evt_cancel_main_task.wait()
-
-        if not fut_tasks.done():
-            # we were explicitelly stopped by cancel event
-            fut_tasks.cancel()
-            try:
-                await fut_tasks
-            except asyncio.CancelledError:
-                # silence our shutdown
-                pass
-        else:
-            return fut_tasks.result()
-
-    def evolve(self, *plugins):
         try:
             # stage 1: bootstrap plugins
-            self.loop.run_until_complete(self.loader(*plugins))
-            # we yield a synchronous loader
-            yield lambda *plugins: self.loop.run_until_complete(self.loader(*plugins))
+            loop.run_until_complete(loader(*plugins))
+            # we yield a synchronous loader, to externally continue loading
+            yield lambda *plugins: loop.run_until_complete(loader(*plugins))
 
             # stage 2: run main task and collect teardown tasks
-            results = self.loop.run_until_complete(self.run())
+            results = loop.run_until_complete(
+                run(tasks=loader.tasks, evt_cancel=cancel)
+            )
             yield results
         finally:
             # stage 3: teardown
-            self.loop.run_until_complete(self.teardown.wait())
+            loop.run_until_complete(teardown.wait())
 
 
-def run(*plugins, components=None, loop=None, enable_stacking=False):
+async def run(tasks, *, evt_cancel=None):
+    if evt_cancel is None:
+        evt_cancel = context.add(Cancel())
+
+    fut_tasks = asyncio.ensure_future(asyncio.gather(*tasks))
+    # stop staging if we finish in any way
+    fut_tasks.add_done_callback(lambda _: evt_cancel.set())
+
+    # wait for exit
+    await evt_cancel.wait()
+
+    if not fut_tasks.done():
+        # we were explicitelly stopped by cancel event
+        fut_tasks.cancel()
+        try:
+            await fut_tasks
+        except asyncio.CancelledError:
+            # silence our shutdown
+            pass
+    else:
+        return fut_tasks.result()
+
+
+def stage(*plugins, components=None, loop=None):
     """Start the asyncio process by boostrapping the root plugin.
 
     We have a three phase setup:
@@ -181,8 +158,7 @@ def run(*plugins, components=None, loop=None, enable_stacking=False):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    staging = Staging(components=components, loop=loop, enable_stacking=enable_stacking)
-    _, result = staging.evolve(*plugins)
+    _, result = evolve(*plugins, components=components, loop=loop)
     return result
 
 
@@ -240,8 +216,6 @@ async def generate_async_result(fun_result):
             yield item
     else:
         result = await fun_result
-
-        # store tasks
         if isinstance(result, collections.abc.Iterable):
             for item in result:
                 yield item

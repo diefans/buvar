@@ -33,6 +33,7 @@ except ImportError:
     from .py_di import AdaptersImpl
 
 
+import contextvars
 import collections
 import inspect
 import itertools
@@ -42,11 +43,9 @@ import typing
 
 import typing_inspect
 
-from buvar import context, util
+from buvar import util
 
 from .exc import ResolveError, missing
-
-PY_36 = sys.version_info < (3, 7)
 
 
 class AdapterError(Exception):
@@ -169,9 +168,7 @@ class GenericFactoryAdapter(ClassmethodAdapter):
             if cls_type is target:
                 bound = typing_inspect.get_bound(cls_type)
                 if bound:
-                    bound = getattr(bound, "_eval_type" if PY_36 else "_evaluate")(
-                        frame.f_globals, frame.f_locals
-                    )
+                    bound = bound._evaluate(frame.f_globals, frame.f_locals)
                     if bound is impl.__self__:
                         args.cls_type = cls_type
                         args.bound = bound
@@ -237,11 +234,16 @@ def collect_defaults(spec):
     return defaults
 
 
+# our default adapters
+buvar_adapters = contextvars.ContextVar(__name__)
+buvar_adapters.set(Adapters())
+
+
 def register(*impls):
-    adapters = context.get(Adapters)
+    adapters = buvar_adapters.get()
     adapters.register(*impls, frame=sys._getframe(1))
 
 
 async def nject(*targets, **dependencies):
-    adapters = context.get(Adapters)
+    adapters = buvar_adapters.get()
     return await adapters.nject(*targets, **dependencies)

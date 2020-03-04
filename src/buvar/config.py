@@ -1,3 +1,4 @@
+import functools
 import os
 import sys
 import typing
@@ -16,7 +17,11 @@ CNF_KEY = "buvar_config"
 logger = structlog.get_logger()
 
 
-missing = object()
+# since we only need a single instance, we just hide the class magically
+@functools.partial(lambda x: x())
+class missing:
+    def __repr__(self):
+        return self.__class__.__name__
 
 
 @attr.s(auto_attribs=True)
@@ -87,35 +92,30 @@ class ConfigSource(dict):
 
     __slots__ = ("env_prefix",)
 
-    def __init__(self, *sources, env_prefix=None):
+    def __init__(self, *sources, env_prefix: typing.Optional[str] = None):
         super().__init__()
-        for source in sources:
-            merge_dict(self, source)
+        merge_dict(*sources, dest=self)
         # config = schematize(__source, cls, env_prefix=env_prefix)
-        self.env_prefix = env_prefix  # noqa: W0212
+
+        self.env_prefix: typing.Tuple[str, ...] = (env_prefix,) if env_prefix else ()
 
     def merge(self, source):
-        merge_dict(self, source)
+        merge_dict(source, dest=self)
 
-    def load(self, scheme, name=None):
+    def load(self, config_cls, name=None):
         if name is None:
             values = self
         else:
             values = self.get(name, {})
 
-        scheme = schematize(
-            scheme,
-            values,
-            env_prefix="_".join(
-                part
-                for part in (
-                    self.env_prefix,
-                    name.upper() if name is not None else None,
-                )
-                if part
-            ),
+        env_config = create_env_config(
+            config_cls, *(self.env_prefix + (name,) if name else ())
         )
-        return scheme
+        values = merge_dict(values, env_config)
+        # merge environment
+
+        config = relaxed_converter.structure(values, config_cls)
+        return config
 
 
 class ConfigError(Exception):
@@ -127,7 +127,8 @@ ConfigType = typing.TypeVar("ConfigType", bound="Config")
 
 
 class Config:
-    __buvar_config_sections__ = {}
+    __buvar_config_section__: typing.Optional[str] = None
+    __buvar_config_sections__: typing.Dict[str, type] = {}
 
     def __init_subclass__(cls, section=None, **kwargs):
         if section in cls.__buvar_config_sections__:
@@ -145,76 +146,134 @@ class Config:
         return config
 
 
-def merge_dict(dest, source):
+def merge_dict(*sources, dest=None):
     """Merge `source` into `dest`.
 
     `dest` is altered in place.
     """
-    for key, value in source.items():
-        if isinstance(value, dict):
-            # get node or create one
-            node = dest.setdefault(key, {})
-            merge_dict(node, value)
-        else:
-            dest[key] = value
+    if dest is None:
+        dest = {}
+    for source in sources:
+        for key, value in source.items():
+            if isinstance(value, dict):
+                # get node or create one
+                node = dest.setdefault(key, {})
+                merge_dict(value, dest=node)
+            else:
+                dest[key] = value
     return dest
 
 
-def schematize(attrs, source, env_prefix=""):
-    """Create a scheme from the source dict and apply environment vars."""
-    attrs_kwargs = {}
-    assert attr.has(attrs), f"{attrs} must be attrs decorated"
-    for attrib in attrs.__attrs_attrs__:
-        hints = typing.get_type_hints(attrs)
-        a_type = attrib.type
-        a_name = attrib.name
-        a_hint = hints[a_name]
-        env_name = "_".join(part for part in (env_prefix, a_name.upper()) if part)
-        try:
-            if attr.has(a_type):
-                a_value = schematize(a_type, source[a_name], env_prefix=env_name)
+def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
+    """Traverse a nested attrs structure, create a dictionary for each nested
+    attrs class and yield all fields resp. path, type and target dictionary."""
+    stack = [
+        (
+            target if target is not None else {},
+            (),
+            list(attr.fields(cls)),
+            get_type_hints(cls),
+        )
+    ]
+    while stack:
+        target, path, fields, hints = stack.pop()
+        while fields:
+            field = fields.pop()
+            field_path = path + (field.name,)
+            field_type = hints[field.name]
+            if attr.has(field_type):
+                target[field.name] = field_target = {}
+                # XXX should we yield also attrs classes?
+                yield field_path, field_type, target
+
+                stack.append((target, path, fields, hints))
+                target, path, fields, hints = (
+                    field_target,
+                    field_path,
+                    list(attr.fields(field_type)),
+                    get_type_hints(field_type),
+                )
             else:
-                a_value = os.environ.get(env_name, source.get(a_name, missing))
+                yield field_path, field_type, target
 
-                if a_value is missing:
-                    if typing_inspect.is_optional_type(a_hint):
-                        a_value = None
+
+def create_env_config(cls, *env_prefix):
+    frame = sys._getframe(1)
+    get_type_hints = functools.partial(
+        typing.get_type_hints, globalns=frame.f_globals, localns=frame.f_locals
+    )
+
+    env_config = {}
+    for path, _, target in traverse_attrs(
+        cls, target=env_config, get_type_hints=get_type_hints
+    ):
+        env_name = "_".join(map(lambda x: x.upper(), env_prefix + path))
+        if env_name in os.environ:
+            target[path[-1]] = os.environ[env_name]
+    return env_config
+
+
+class RelaxedConverter(cattr.Converter):
+    """This py:obj:`RelaxedConverter` is ignoring undefined and defaulting to
+    None on optional attributes."""
+
+    def structure_attrs_fromdict(
+        self, obj: typing.Mapping, cl: typing.Type
+    ) -> typing.Any:
+        """Instantiate an attrs class from a mapping (dict)."""
+        conv_obj = {}
+        dispatch = self._structure_func.dispatch
+        for a in attr.fields(cl):
+            # We detect the type by metadata.
+            type_ = a.type
+            if type_ is None:
+                # No type.
+                continue
+            name = a.name
+            try:
+                val = obj[name]
+            except KeyError:
+                if typing_inspect.is_optional_type(type_):
+                    if a.default in (missing, attr.NOTHING):
+                        val = None
                     else:
-                        if attrib.default is missing:
-                            raise ValueError("Attribute is missing", a_name, env_name)
-                        # we skip this value if source is lacking but we have a default
-                        continue
-                elif attrib.converter is None:
-                    a_value = cattr.structure(a_value, a_type)
+                        val = a.default
+                elif a.default in (missing, attr.NOTHING):
+                    raise ValueError("Attribute is missing", a.name)
+                else:
+                    continue
 
-            attrs_kwargs[a_name] = a_value
-        except KeyError:
-            logger.warn("Key not in source", key=a_name, source=source)
+            if a.converter is None:
+                val = dispatch(type_)(val, type_)
 
-    scheme = attrs(**attrs_kwargs)
-    return scheme
+            conv_obj[name] = val
+
+        return cl(**conv_obj)
 
 
-def generate_env_help(attrs, env_prefix=""):
+relaxed_converter = RelaxedConverter()
+
+
+def generate_env_help(cls, env_prefix=""):
     """Generate a list of all environment options."""
 
     help = "\n".join(  # noqa: W0622
         "_".join((env_prefix,) + path if env_prefix else path).upper()
-        for path, attrib in traverse_attrs(attrs)
-        if not attr.has(attrib)
+        for path, type, _ in traverse_attrs(cls)
+        if not attr.has(type)
     )
     return help
 
 
-def generate_toml_help(attrs, env_prefix="", parent=None):
+def generate_toml_help(config_cls, *, parent=None):
     if parent is None:
         parent = tomlkit.table()
-        doclines = trim(attrs.__doc__).split("\n")
+        doclines = trim(config_cls.__doc__).split("\n")
         for line in doclines:
             parent.add(tomlkit.comment(line))
         parent.add(tomlkit.nl())
 
-    for attrib in attrs.__attrs_attrs__:
+    for attrib in attr.fields(config_cls):
         meta = attrib.metadata.get(CNF_KEY)
         if attr.has(attrib.type):
             # yield (attrib.name,), attrib
@@ -224,29 +283,17 @@ def generate_toml_help(attrs, env_prefix="", parent=None):
             if meta:
                 parent.add(tomlkit.comment(meta.help))
 
-            if attrib.default not in (missing, attr.NOTHING):
+            if attrib.default in (missing, attr.NOTHING):
+                parent.add(tomlkit.comment(f"{attrib.name} ="))
+            else:
                 default = (
                     attrib.default() if callable(attrib.default) else attrib.default
                 )
-
                 parent.add(attrib.name, default)
-            else:
-                parent.add(tomlkit.comment(f"{attrib.name} ="))
 
             parent.add(tomlkit.nl())
 
     return parent
-
-
-def traverse_attrs(attrs, with_nodes=False):
-    for attrib in attrs.__attrs_attrs__:
-        if attr.has(attrib.type):
-            if with_nodes:
-                yield (attrib.name,), attrib
-            for path, sub_attrib in traverse_attrs(attrib.type):
-                yield (attrib.name,) + path, sub_attrib
-        else:
-            yield (attrib.name,), attrib
 
 
 def trim(docstring):

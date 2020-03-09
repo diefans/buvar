@@ -4,7 +4,7 @@ cdef class ComponentLookupError(Exception):
 
 cdef class Components:
     cdef dict namespaces
-    cpdef list stack
+    cdef list _stack
 
     cdef _push(self, namespaces, stack)
     cpdef pop(self)

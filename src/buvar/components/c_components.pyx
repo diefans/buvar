@@ -17,11 +17,12 @@ cdef class ComponentLookupError(Exception):
 
 cdef class Components:
     def __init__(self, *stack):
-        self.stack = list(stack) or [{}]  # always at least one map
-        self.namespaces = self.stack[0]
+        self._stack = list(stack) or [{}]  # always at least one map
+        self.namespaces = self._stack[0]
 
-    def __iter__(self):
-        return iter(self.upstream())
+    @property
+    def stack(self):
+        return self._stack
 
     cdef _add(self, object item, namespace=None, str name=None):
         cdef dict space
@@ -55,7 +56,7 @@ cdef class Components:
         if namespaces is None:
             namespaces = {}
 
-        components = self.__class__(namespaces, *itertools.chain(stack, self.stack))
+        components = self.__class__(namespaces, *itertools.chain(stack, self._stack))
         return components
 
     def push(self, namespaces=None, *stack):
@@ -65,11 +66,11 @@ cdef class Components:
         return self._push(namespaces, stack)
 
     cpdef pop(self):
-        return self.__class__(*self.stack[1:])
+        return self.__class__(*self._stack[1:])
 
     cdef dict _find(self, namespace):
         cdef dict merged = {}
-        for namespaces in self.stack[::-1]:
+        for namespaces in self._stack[::-1]:
             try:
                 space = namespaces[namespace]
                 merged.update(space)
@@ -81,7 +82,7 @@ cdef class Components:
         return self._find(namespace)
 
     cdef _get(self, namespace, name=None, default=missing):
-        for namespaces in self.stack:
+        for namespaces in self._stack:
             try:
                 item = namespaces[namespace][name]
                 return item

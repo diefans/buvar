@@ -28,9 +28,6 @@ class Components:
         self.stack = list(stack) or [{}]  # always at least one map
         self.namespaces = self.stack[0]
 
-    def __iter__(self):
-        return iter(self.upstream())
-
     def add(self, item, namespace=None, *, name=None):
         if isinstance(item, type):
             raise ValueError("A component should be an instance.")

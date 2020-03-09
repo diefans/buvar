@@ -175,3 +175,15 @@ def test_broken_task(event_loop):
         plugin.stage(broken_plugin, loop=event_loop)
         assert e.error.args == ("Task is broken",)
     assert state == {"teardown_task": True}
+
+
+def test_stage_components():
+    from buvar import plugin, components, context
+
+    async def test_plugin(load: plugin.Loader):
+        assert context.get(str) == "foo"
+
+    cmps = components.Components()
+    cmps.add("foo")
+
+    plugin.stage(test_plugin, components=cmps)

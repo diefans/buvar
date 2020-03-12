@@ -1,30 +1,29 @@
 """Very simple plugin architecture for asyncio.
 
+`Loader` calls prepare coroutines, which yield tasks, the `Loader` collects.
+These tasks are then run until complete.
+
+A py:obj:`buvar.components.Components` context is stacked in way, that plugins
+share the same context, while tasks don't, but may access the plugin context.
+
+
     >>> loop = asyncio.get_event_loop()
     >>> state = {}
     >>> async def prepare(load: Loader):
     ...     async def some_task():
     ...         state['task'] = True
+    ...         return "foo"
     ...     yield some_task()
 
-
-    >>> stages = evolve()
-    >>> load = next(stages)
-    >>> load(prepare)
-
-    >>> # wait for main task to finish
-    >>> tasks_results = next(stages)
-
-    >>> # finsh
-    >>> next(stages, None)
-
+    >>> mystage = Stage()
+    >>> mystage.load(prepare)
+    >>> mystage.run()
+    ['foo']
     >>> assert state == {'task': True}
 
-
     >>> state = {}
-    >>> for stage in evolve(prepare):
-    ...     pass
-
+    >>> stage(prepare)
+    ['foo']
     >>> assert state == {'task': True}
 """
 import asyncio
@@ -65,12 +64,15 @@ class Teardown:
         await asyncio.gather(*self)
 
 
-class Loader(dict):
+class Loader:
     """Load plugins and collect tasks."""
+
+    def __init__(self):
+        self._tasks = {}
 
     @property
     def tasks(self):
-        return iter(itertools.chain(*self.values()))
+        return iter(itertools.chain(*self._tasks.values()))
 
     async def __call__(self, *plugins):
         """Hook the plugin from another plugin.
@@ -83,9 +85,9 @@ class Loader(dict):
         """
         for plugin in plugins:
             plugin = resolve_plugin_func(plugin)
-            if plugin not in self:
+            if plugin not in self._tasks:
                 # mark plugin as loaded for recursive circular stuff
-                self[plugin] = []
+                self._tasks[plugin] = []
                 # load plugin
                 args = collect_plugin_args(plugin)
                 try:
@@ -93,55 +95,52 @@ class Loader(dict):
                 except TypeError as ex:
                     raise TypeError(*ex.args, plugin.__module__, plugin.__name__)
                 callables = [fun async for fun in generate_async_result(result)]
-                self[plugin].extend(callables)
+                self._tasks[plugin].extend(callables)
 
 
-def evolve(*plugins, components=None, loop=None):
-    """Generate all stages to run an application."""
-    loop = loop or asyncio.get_event_loop()
-    with context.child(*(components.stack if components else ())):
+class Stage:
+    def __init__(self, components=None, loop=None):
+        self.loop = loop or asyncio.get_event_loop()
+        self.context = (
+            context.current_context()
+            .push(*(components.stack if components else ()))
+            .push()
+        )
         # provide basic components
-        cancel = context.add(Cancel(loop=loop))
-        teardown = context.add(Teardown())
-        loader = context.add(Loader())
+        self.cancel = self.context.add(Cancel(loop=self.loop))
+        self.teardown = self.context.add(Teardown())
+        self.loader = self.context.add(Loader())
 
+        self.context = self.context.push()
+
+    def load(self, *plugins):
+        @context.run_child(self.context)
+        def _load():
+            self.loop.run_until_complete(self.loader(*plugins))
+
+        _load()
+
+    def run_tasks(self):
+        @context.run_child(self.context)
+        def _run_tasks():
+            return self.loop.run_until_complete(
+                run(tasks=self.loader.tasks, evt_cancel=self.cancel)
+            )
+
+        return _run_tasks()
+
+    def run_teardown(self):
+        self.loop.run_until_complete(self.teardown.wait())
+
+    def run(self, *plugins):
         try:
             # stage 1: bootstrap plugins
-            loop.run_until_complete(loader(*plugins))
-            # we yield a synchronous loader, to externally continue loading
-            yield lambda *plugins: loop.run_until_complete(loader(*plugins))
-
+            self.load(*plugins)
             # stage 2: run main task and collect teardown tasks
-            results = loop.run_until_complete(
-                run(tasks=loader.tasks, evt_cancel=cancel)
-            )
-            yield results
+            return self.run_tasks()
         finally:
             # stage 3: teardown
-            loop.run_until_complete(teardown.wait())
-
-
-async def run(tasks, *, evt_cancel=None):
-    if evt_cancel is None:
-        evt_cancel = context.add(Cancel())
-
-    fut_tasks = asyncio.ensure_future(asyncio.gather(*tasks))
-    # stop staging if we finish in any way
-    fut_tasks.add_done_callback(lambda _: evt_cancel.set())
-
-    # wait for exit
-    await evt_cancel.wait()
-
-    if not fut_tasks.done():
-        # we were explicitelly stopped by cancel event
-        fut_tasks.cancel()
-        try:
-            await fut_tasks
-        except asyncio.CancelledError:
-            # silence our shutdown
-            pass
-    else:
-        return fut_tasks.result()
+            self.run_teardown()
 
 
 def stage(*plugins, components=None, loop=None):
@@ -158,8 +157,37 @@ def stage(*plugins, components=None, loop=None):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    _, result = evolve(*plugins, components=components, loop=loop)
-    return result
+    stage = Stage(components=components, loop=loop)
+    return stage.run(*plugins)
+
+
+async def run(tasks, *, evt_cancel=None):
+    if evt_cancel is None:
+        evt_cancel = context.add(Cancel())
+
+    # we elevate context stack for tasks
+    factory = context.set_task_factory()
+    try:
+        fut_tasks = asyncio.gather(*map(asyncio.create_task, tasks))
+    finally:
+        factory.reset()
+
+    # stop staging if we finish in any way
+    fut_tasks.add_done_callback(lambda _: evt_cancel.set())
+
+    # wait for exit
+    await evt_cancel.wait()
+
+    if not fut_tasks.done():
+        # we were explicitelly stopped by cancel event
+        fut_tasks.cancel()
+        try:
+            await fut_tasks
+        except asyncio.CancelledError:
+            # silence our shutdown
+            pass
+    else:
+        return fut_tasks.result()
 
 
 def collect_plugin_args(plugin):

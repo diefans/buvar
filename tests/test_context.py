@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_tasks_with_context_child(components):
+async def test_tasks_with_context_child():
     import asyncio
     from buvar import context
 
@@ -36,7 +36,7 @@ async def test_tasks_with_context_child(components):
 
 
 @pytest.mark.asyncio
-async def test_tasks_context_auto_stacking(components, event_loop):
+async def test_tasks_context_auto_stacking(event_loop):
     import asyncio
     from buvar import context
 

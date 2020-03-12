@@ -1,17 +1,5 @@
 import pytest
 
-PLUGINS_MARK = "buvar_plugins"
-
-
-@pytest.fixture(autouse=True, scope="session")
-def setup_logging():
-    from buvar import log
-
-    log.setup_logging(tty=False)
-    # setup_stuff
-    yield
-    # teardown_stuff
-
 
 @pytest.fixture(params=["cython", "python"], autouse=True)
 def implementation(request, mocker):
@@ -67,63 +55,3 @@ def components(implementation):
     token = context.buvar_context.set(components)
     yield components
     context.buvar_context.reset(token)
-
-
-@pytest.fixture
-def context_task_factory(event_loop, components):
-    from buvar import context
-
-    return context.set_task_factory(loop=event_loop)
-
-
-def pytest_configure(config):
-    # register an additional marker
-    config.addinivalue_line(
-        "markers",
-        f"{PLUGINS_MARK}(*plugins): mark test to run only on named environment",
-    )
-
-
-@pytest.fixture
-def pushed_context(components):
-    from buvar import context
-
-    with context.child(*(components.stack if components else ())):
-        yield
-
-
-@pytest.fixture
-@pytest.mark.usefixtures("pushed_context")
-async def buvar_staged(request):
-    import asyncio
-    from buvar import plugin, context
-
-    # get plugins from mark
-    plugins = next(
-        (
-            mark.args
-            for mark in request.node.iter_markers()
-            if mark.name == PLUGINS_MARK
-        ),
-        (),
-    )
-    try:
-        # prepare components
-        context.add(plugin.Cancel())
-        loader = context.add(plugin.Loader())
-        teardown = context.add(plugin.Teardown())
-
-        # stage 1: bootstrap plugins
-        await loader(*plugins)
-
-        # stage 2: run main task and collect teardown tasks
-        fut_run = asyncio.create_task(plugin.run(loader.tasks))
-        yield
-        fut_run.cancel()
-        await fut_run
-    except Exception:
-        raise
-
-    finally:
-        # stage 3: teardown
-        await teardown.wait()

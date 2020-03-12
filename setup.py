@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-import os
-
 from setuptools import dist, find_packages, setup
 from setuptools.command.install import install
 
@@ -36,7 +33,7 @@ install_requires = [
     "typing_inspect>=0.4.0<0.5",
 ]
 
-entry_points = {}  # {"console_scripts": ["buvar = buvar.cli:main"]}
+entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",

@@ -178,10 +178,29 @@ def test_broken_task(event_loop):
 
 
 def test_stage_components():
+    import asyncio
     from buvar import plugin, components, context
 
     async def test_plugin(load: plugin.Loader):
         assert context.get(str) == "foo"
+        context.add("bar", name="bar")
+
+        async def task1():
+            assert context.get(str, name="bar") == "bar"
+            asyncio.sleep(0.02)
+            context.add("task1", name="bar")
+            asyncio.sleep(0.01)
+            assert context.get(str, name="bar") == "task1"
+
+        async def task2():
+            assert context.get(str, name="bar") == "bar"
+            asyncio.sleep(0.01)
+            context.add("task2", name="bar")
+            asyncio.sleep(0.02)
+            assert context.get(str, name="bar") == "task2"
+
+        yield task1()
+        yield task2()
 
     cmps = components.Components()
     cmps.add("foo")

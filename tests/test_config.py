@@ -6,7 +6,7 @@ import pytest
 #     reason="similar to https://github.com/python/typing/issues/506",
 # )
 @pytest.mark.asyncio
-async def test_config_source_schematize(event_loop, mocker, components):
+async def test_config_source_schematize(mocker):
     from buvar import config
     import typing
     import attr
@@ -63,7 +63,8 @@ async def test_config_source_schematize(event_loop, mocker, components):
 
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.config")
-async def test_config_generic_adapter(mocker, buvar_staged):
+@pytest.mark.usefixtures("buvar_tasks")
+async def test_config_generic_adapter(mocker):
     import attr
     import typing
     from buvar import config, di

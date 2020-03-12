@@ -134,7 +134,7 @@ async def test_nject_optional(adapters):
 
 
 @pytest.mark.benchmark(group="nject")
-def test_di_nject(event_loop, benchmark, adapters, context_task_factory):
+def test_di_nject(event_loop, benchmark, adapters):
     from buvar import context
 
     class Foo(dict):

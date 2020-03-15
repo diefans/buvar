@@ -63,7 +63,6 @@ async def test_config_source_schematize(mocker):
 
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.config")
-@pytest.mark.usefixtures("buvar_tasks")
 async def test_config_generic_adapter(mocker):
     import attr
     import typing

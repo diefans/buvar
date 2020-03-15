@@ -11,26 +11,9 @@ def pytest_configure(config):
     )
 
 
-# XXX FIXME
-# https://github.com/pytest-dev/pytest/issues/6908
-# def pytest_runtest_setup(item):
-#     if (
-#         PLUGINS_MARK
-#         in set(mark.name for mark in item.iter_markers())
-#         # and "buvar_tasks" not in item.fixturenames
-#     ):
-#         __import__("pdb").set_trace()  # XXX BREAKPOINT
-#         item.add_marker(pytest.mark.usefixtures("buvar_tasks"), append=False)
-
-
-# def pytest_collection_modifyitems(items):
-#     for item in items:
-#         if (
-#             PLUGINS_MARK
-#             in set(mark.name for mark in item.iter_markers())
-#             # and "buvar_tasks" not in item.fixturenames
-#         ):
-#             item.add_marker(pytest.mark.usefixtures("buvar_tasks"), append=False)
+def pytest_runtest_setup(item):
+    if PLUGINS_MARK in item.keywords and buvar_tasks.__name__ not in item.fixturenames:
+        item.fixturenames.extend((buvar_stage.__name__, buvar_tasks.__name__))
 
 
 @pytest.fixture
@@ -55,7 +38,8 @@ def buvar_tasks(request, buvar_stage):
 
     try:
         # stage 1: bootstrap plugins
-        buvar_stage.load(*plugins)
+        if plugins:
+            buvar_stage.load(*plugins)
 
         # stage 2: tasks
         yield buvar_stage.loader.tasks
@@ -65,3 +49,32 @@ def buvar_tasks(request, buvar_stage):
     finally:
         # stage 3: teardown
         buvar_stage.run_teardown()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem):
+    if PLUGINS_MARK in pyfuncitem.keywords:
+        stage = pyfuncitem.funcargs[buvar_stage.__name__]
+        pyfuncitem.obj = wrap_in_buvar_stage_context(stage.context, pyfuncitem.obj)
+
+    yield
+
+
+def wrap_in_buvar_stage_context(context, func):
+    """Enable test function to run in plugin context."""
+    import functools
+    import contextvars
+
+    from buvar.context import buvar_context
+
+    ctx = contextvars.copy_context()
+
+    @functools.wraps(func)
+    def inner(**kwargs):
+        def wrapper():
+            buvar_context.set(context)
+            return func(**kwargs)
+
+        return ctx.run(wrapper)
+
+    return inner

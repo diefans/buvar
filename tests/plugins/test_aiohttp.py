@@ -1,6 +1,13 @@
 import pytest
 
 
+# running in manylinux docker
+# the loop fixture in buvar.testing seem to have no effect
+@pytest.fixture
+def loop(event_loop):
+    return event_loop
+
+
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.plugins.aiohttp")
 async def test_app_dummy(buvar_aiohttp_app, test_client):

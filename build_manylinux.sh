@@ -13,19 +13,16 @@ EOF
 
 # create wheels
 for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
-    PIP=/opt/python/${PYTHON_VERSION}/bin/pip
-    ${PIP} install cython
-    ${PIP} wheel .[tests] -w ./wheelhouse/
-done
-
-# repair wheels
-for WHL in ./wheelhouse/${PROJECT}-*.whl; do
-    auditwheel repair "${WHL}" --plat ${PLATFORM} -w ./wheelhouse/
-done
-
-# install and test
-for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
     BIN=/opt/python/${PYTHON_VERSION}/bin
-    "${BIN}/pip" install ${PROJECT}[tests] --no-index -f ./wheelhouse
+    PIP=${BIN}/pip
+    PYTHON=${BIN}/python
+
+    ${PIP} wheel -w ./wheelhouse cython pip
+    ${PIP} install -U cython pip -f ./wheelhouse
+    ${PYTHON} setup.py bdist_wheel -d wheels
+
+    auditwheel repair ./wheels/${PROJECT}*${PYTHON_VERSION}*.whl --plat ${PLATFORM} -w ./dist
+
+    ${PIP} install ${PROJECT}[tests] -f ./dist -f ./wheelhouse
     ${BIN}/pytest tests
 done

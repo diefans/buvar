@@ -17,10 +17,29 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture
-def buvar_stage(event_loop):
+def buvar_config_source():
+    from buvar import config
+
+    config_source = config.ConfigSource()
+
+    return config_source
+
+
+@pytest.fixture
+def buvar_context(buvar_config_source):
+    from buvar import components
+
+    context = components.Components()
+    context.add(buvar_config_source)
+
+    return context
+
+
+@pytest.fixture
+def buvar_stage(event_loop, buvar_context):
     from buvar import plugin
 
-    stage = plugin.Stage(loop=event_loop)
+    stage = plugin.Stage(loop=event_loop, components=buvar_context)
     return stage
 
 
@@ -51,6 +70,11 @@ def buvar_tasks(request, buvar_stage):
         buvar_stage.run_teardown()
 
 
+@pytest.fixture
+def buvar_plugin_context(buvar_stage, buvar_tasks):
+    return buvar_stage.context
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_pyfunc_call(pyfuncitem):
     if PLUGINS_MARK in pyfuncitem.keywords:
@@ -78,3 +102,17 @@ def wrap_in_buvar_stage_context(context, func):
         return ctx.run(wrapper)
 
     return inner
+
+
+@pytest.fixture
+def loop(event_loop):
+    # use event loop from pytest-asyncio
+    return event_loop
+
+
+@pytest.fixture
+def buvar_aiohttp_app(buvar_tasks, buvar_stage):
+    import aiohttp.web
+
+    app = buvar_stage.context.get(aiohttp.web.Application)
+    return app

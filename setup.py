@@ -31,6 +31,9 @@ install_requires = [
     "toml>=0.10,<0.11",
     "tomlkit>=0.5.3,<0.6.0",
     "typing_inspect>=0.4.0<0.5",
+    "aiofile<2",
+    "cached_property<2",
+    "prance<1",
 ]
 
 entry_points = {"pytest11": ["buvar = buvar.testing"]}
@@ -59,6 +62,7 @@ setup_kwargs = {
             "pytest-watch>=4.2<5.0",
             "pytest-randomly>=3.1<4.0",
             "pytest-doctestplus>=0.5<1.0",
+            "pytest-aiohttp",
             "pdbpp",
         ],
         "orjson": ["orjson>=2.0,<3.0"],

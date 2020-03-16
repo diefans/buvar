@@ -99,8 +99,8 @@ class ConfigSource(dict):
 
         self.env_prefix: typing.Tuple[str, ...] = (env_prefix,) if env_prefix else ()
 
-    def merge(self, source):
-        merge_dict(source, dest=self)
+    def merge(self, *sources):
+        merge_dict(*sources, dest=self)
 
     def load(self, config_cls, name=None):
         if name is None:

@@ -61,7 +61,6 @@ async def test_config_source_schematize(mocker):
     )
 
 
-@pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.config")
 async def test_config_generic_adapter(mocker):
     import attr
@@ -267,3 +266,27 @@ def test_env_config(mocker):
     env_config = config.create_env_config(Bar, "PREFIX")
 
     assert env_config == {"foo": {"baz": {}, "str": "abc", "int": "777"}}
+
+
+def test_config_subclass_abc(mocker):
+    import abc
+    import attr
+    from buvar import config
+
+    mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
+
+    class GeneralConfig(config.Config, section=None):
+        ...
+
+    class FooBase(config.Config, metaclass=abc.ABCMeta):
+        ...
+
+    @attr.s(auto_attribs=True)
+    class FooConfig(FooBase, section="foo"):
+        bar: str = "default"
+        foobar: float = 9.87
+        baz: bool = config.bool_var(default=False)
+
+    assert config.skip_section not in config.Config.__buvar_config_sections__
+    assert FooBase not in config.Config.__buvar_config_sections__.values()
+    assert config.Config.__buvar_config_sections__["foo"] is FooConfig

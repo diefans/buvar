@@ -1,11 +1,6 @@
-import enum
-
-
-class missing(enum.Enum):
-    missing = 1
-
-
-missing = missing.missing
+missing = type.__new__(
+    type, "missing", (object,), {"__repr__": lambda self: self.__class__.__name__}
+)()
 
 
 class ResolveError(Exception):

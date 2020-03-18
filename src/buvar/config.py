@@ -125,12 +125,18 @@ class ConfigError(Exception):
 # to get typing_inspect.is_generic_type()
 ConfigType = typing.TypeVar("ConfigType", bound="Config")
 
+skip_section = type.__new__(
+    type, "skip_section", (object,), {"__repr__": lambda self: self.__class__.__name__}
+)()
+
 
 class Config:
-    __buvar_config_section__: typing.Optional[str] = None
+    __buvar_config_section__: typing.Optional[str] = skip_section
     __buvar_config_sections__: typing.Dict[str, type] = {}
 
-    def __init_subclass__(cls, section=None, **kwargs):
+    def __init_subclass__(cls, section=skip_section, **kwargs):
+        if section is skip_section:
+            return
         if section in cls.__buvar_config_sections__:
             raise ConfigError(
                 f"Config section `{section}` already defined!",

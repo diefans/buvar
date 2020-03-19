@@ -33,7 +33,7 @@ install_requires = [
     "typing_inspect>=0.4.0<0.5",
     "aiofile<2",
     "cached_property<2",
-    "prance<1",
+    "prance[osv]<1",
 ]
 
 entry_points = {"pytest11": ["buvar = buvar.testing"]}

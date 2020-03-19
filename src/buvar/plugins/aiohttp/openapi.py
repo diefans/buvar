@@ -54,7 +54,7 @@ class Operation:
 
     def add(self, routes: aiohttp.web.RouteTableDef, func):
         method = getattr(routes, self.method)
-        method(self.path.url)(func)
+        method(self.path.url, name=self.id)(func)
 
 
 def resolve_operations(openapi_spec):
@@ -117,8 +117,12 @@ class OperationMap:
         # create subapp or prepend servers
         operations = {op.id: op for op in resolve_operations(spec)}
         for operation_id, func in self.handlers.items():
-            operation = operations.pop(operation_id)
-            operation.add(routes, func)
+            try:
+                operation = operations.pop(operation_id)
+            except IndexError:
+                sl.info("Operation not in API", operation=operation)
+            else:
+                operation.add(routes, func)
 
         app.add_routes(routes)
         if operations:

@@ -18,3 +18,21 @@ class reify:
         val = self.wrapped(inst)
         setattr(inst, self.wrapped.__name__, val)
         return val
+
+
+def merge_dict(*sources, dest=None):
+    """Merge `sources` into `dest`.
+
+    `dest` is altered in place.
+    """
+    if dest is None:
+        dest = {}
+    for source in sources:
+        for key, value in source.items():
+            if isinstance(value, dict):
+                # get node or create one
+                node = dest.setdefault(key, {})
+                merge_dict(value, dest=node)
+            else:
+                dest[key] = value
+    return dest

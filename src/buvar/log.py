@@ -7,6 +7,8 @@ import sys
 import structlog
 from structlog.processors import JSONRenderer
 
+from . import util
+
 
 def stringify_dict_keys(obj):
     if isinstance(obj, list):
@@ -21,7 +23,9 @@ def stringify_dict_keys(obj):
 try:
     import orjson
 
-    json_dumps = functools.partial(orjson.dumps, option=orjson.OPT_NAIVE_UTC)
+    json_dumps = functools.partial(
+        orjson.dumps, option=orjson.OPT_NAIVE_UTC | orjson.OPT_NON_STR_KEYS
+    )
 except ImportError:
     import json
 
@@ -51,6 +55,7 @@ def setup_logging(
     *,
     tty=sys.stdout.isatty(),
     level=logging.DEBUG,
+    user_config=None,
     capture_warnings=True,
     redirect_print=False,
     json_renderer=JSONRenderer(
@@ -84,30 +89,25 @@ def setup_logging(
         # ),
     ]
 
-    # TODO merge with a user config
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "structured": {
-                    "()": structlog.stdlib.ProcessorFormatter,
-                    "processor": renderer,
-                    "foreign_pre_chain": pre_chain,
-                }
-            },
-            "handlers": {
-                "default": {
-                    # "level": "DEBUG",
-                    "class": "logging.StreamHandler",
-                    "formatter": "structured",
-                }
-            },
-            "loggers": {
-                "": {"handlers": ["default"], "level": level, "propagate": True}
-            },
-        }
-    )
+    config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "structured": {
+                "()": structlog.stdlib.ProcessorFormatter,
+                "processor": renderer,
+                "foreign_pre_chain": pre_chain,
+            }
+        },
+        "handlers": {
+            "default": {"class": "logging.StreamHandler", "formatter": "structured"}
+        },
+        "loggers": {"": {"handlers": ["default"], "level": level, "propagate": True}},
+    }
+    if user_config:
+        util.merge_dict(user_config, dest=config)
+    logging.config.dictConfig(config)
+
     logging.captureWarnings(capture_warnings)
     processors = [
         structlog.stdlib.add_log_level,

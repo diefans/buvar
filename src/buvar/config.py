@@ -9,7 +9,7 @@ import structlog
 import tomlkit
 import typing_inspect
 
-from . import di
+from . import di, util
 
 CNF_KEY = "buvar_config"
 
@@ -94,13 +94,13 @@ class ConfigSource(dict):
 
     def __init__(self, *sources, env_prefix: typing.Optional[str] = None):
         super().__init__()
-        merge_dict(*sources, dest=self)
+        util.merge_dict(*sources, dest=self)
         # config = schematize(__source, cls, env_prefix=env_prefix)
 
         self.env_prefix: typing.Tuple[str, ...] = (env_prefix,) if env_prefix else ()
 
     def merge(self, *sources):
-        merge_dict(*sources, dest=self)
+        util.merge_dict(*sources, dest=self)
 
     def load(self, config_cls, name=None):
         if name is None:
@@ -111,7 +111,7 @@ class ConfigSource(dict):
         env_config = create_env_config(
             config_cls, *(self.env_prefix + (name,) if name else ())
         )
-        values = merge_dict(values, env_config)
+        values = util.merge_dict(values, env_config)
         # merge environment
 
         config = relaxed_converter.structure(values, config_cls)
@@ -150,24 +150,6 @@ class Config:
     async def adapt(cls: typing.Type[ConfigType], source: ConfigSource) -> ConfigType:
         config = source.load(cls, cls.__buvar_config_section__)
         return config
-
-
-def merge_dict(*sources, dest=None):
-    """Merge `source` into `dest`.
-
-    `dest` is altered in place.
-    """
-    if dest is None:
-        dest = {}
-    for source in sources:
-        for key, value in source.items():
-            if isinstance(value, dict):
-                # get node or create one
-                node = dest.setdefault(key, {})
-                merge_dict(value, dest=node)
-            else:
-                dest[key] = value
-    return dest
 
 
 def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):

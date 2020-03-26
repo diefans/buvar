@@ -40,7 +40,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.28.1",
+    "version": "0.29.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",
@@ -65,7 +65,7 @@ setup_kwargs = {
             "pytest-aiohttp",
             "pdbpp",
         ],
-        "orjson": ["orjson>=2.0,<3.0"],
+        "orjson": ["orjson>=2.5.0,<3.0"],
         "all": ["aiohttp"],
     },
     "entry_points": entry_points,

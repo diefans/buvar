@@ -59,7 +59,9 @@ def setup_logging(
     capture_warnings=True,
     redirect_print=False,
     json_renderer=JSONRenderer(
-        serializer=lambda obj, **kwargs: json_dumps(stringify_dict_keys(obj), **kwargs)
+        serializer=lambda obj, **kwargs: json_dumps(
+            stringify_dict_keys(obj), **kwargs
+        ).decode("utf-8")
     ),
 ):
 
@@ -114,6 +116,7 @@ def setup_logging(
         structlog.stdlib.add_logger_name,
         structlog.stdlib.PositionalArgumentsFormatter(),
         timestamper,
+        add_os_pid,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.stdlib.ProcessorFormatter.wrap_for_formatter,

@@ -23,9 +23,10 @@ def stringify_dict_keys(obj):
 try:
     import orjson
 
-    json_dumps = functools.partial(
+    json_dumps_inner = functools.partial(
         orjson.dumps, option=orjson.OPT_NAIVE_UTC | orjson.OPT_NON_STR_KEYS
     )
+    json_dumps = lambda *arg, **kwargs: json_dumps_inner(*arg, **kwargs).decode("utf-8")
 except ImportError:
     import json
 

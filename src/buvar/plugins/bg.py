@@ -2,11 +2,10 @@
 import asyncio
 import sys
 
+from buvar import context, plugin
 import structlog
 
-from buvar import Teardown, context
-
-logger = structlog.get_logger()
+sl = structlog.get_logger()
 
 
 class Jobs(set):
@@ -14,8 +13,21 @@ class Jobs(set):
         frame = sys._getframe(1)
         module_name = frame.f_globals["__name__"]
 
-        logger.info("Add background job", job=job, module=module_name)
-        return super().add(asyncio.ensure_future(job))
+        sl.info("Add background job", job=job, module=module_name)
+        fut_job = asyncio.ensure_future(job)
+
+        super().add(fut_job)
+        fut_job.add_done_callback(self.remove)
+
+        return fut_job
+
+    def remove(self, fut):
+        try:
+            _ = fut.result()
+        except Exception as ex:
+            sl.error("Background job failed", error=ex)
+        finally:
+            super().remove(fut)
 
     def cancel(self):
         for job in self:
@@ -29,6 +41,6 @@ class Jobs(set):
         await self
 
 
-async def prepare():
+async def prepare(teardown: plugin.Teardown):
     jobs = context.add(Jobs())
-    context.get(Teardown).add(jobs.shutdown())
+    teardown.add(jobs.shutdown())

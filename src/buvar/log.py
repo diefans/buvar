@@ -60,9 +60,7 @@ def setup_logging(
     capture_warnings=True,
     redirect_print=False,
     json_renderer=JSONRenderer(
-        serializer=lambda obj, **kwargs: json_dumps(
-            stringify_dict_keys(obj), **kwargs
-        ).decode("utf-8")
+        serializer=lambda obj, **kwargs: json_dumps(stringify_dict_keys(obj), **kwargs)
     ),
 ):
 

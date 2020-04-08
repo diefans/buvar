@@ -25,7 +25,7 @@ class Jobs(set):
         try:
             _ = fut.result()
         except Exception as ex:
-            sl.error("Background job failed", error=ex)
+            sl.error("Background job failed", exc_info=ex)
         finally:
             super().remove(fut)
 
@@ -34,7 +34,7 @@ class Jobs(set):
             job.cancel()
 
     def __await__(self):
-        return asyncio.gather(*self).__await__()
+        return asyncio.gather(*self, return_exceptions=True).__await__()
 
     async def shutdown(self):
         self.cancel()

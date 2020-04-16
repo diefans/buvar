@@ -1,4 +1,9 @@
 import functools
+import importlib
+import inspect
+import sys
+import types
+import typing
 
 
 def methdispatch(func):
@@ -48,3 +53,33 @@ def merge_dict(*sources, dest=None):
             else:
                 dest[key] = value
     return dest
+
+
+def resolve_dotted_name(name, *, caller: typing.Union[types.FrameType, int] = 0):
+    """Use pkg_resources style dotted name to resolve a name."""
+    # skip resolving for module and coroutine
+    if inspect.ismodule(name) or inspect.isroutine(name):
+        return name
+
+    # relative import
+    if name.startswith("."):
+        # find coller package
+        frame = (
+            caller if isinstance(caller, types.FrameType) else sys._getframe(1 + caller)
+        )
+        caller_package = frame.f_globals["__package__"]
+    else:
+        caller_package = None
+
+    part = ":"
+    module_name, _, attr_name = name.partition(part)
+
+    if part in attr_name:
+        raise ValueError(f"Invalid name: {name}", name)
+
+    resolved = importlib.import_module(module_name, caller_package)
+
+    if attr_name:
+        resolved = getattr(resolved, attr_name)
+
+    return resolved

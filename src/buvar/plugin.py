@@ -28,14 +28,15 @@ share the same context, while tasks don't, but may access the plugin context.
 """
 import asyncio
 import collections.abc
-import importlib
 import inspect
 import itertools
+import sys
+import types
 import typing
 
 import structlog
 
-from . import context
+from . import context, util
 
 PLUGIN_FUNCTION_NAME = "prepare"
 
@@ -84,7 +85,7 @@ class Loader:
         :type plugins: list of callables which may have one argument
         """
         for plugin in plugins:
-            plugin = resolve_plugin_func(plugin)
+            plugin = resolve_plugin_func(plugin, caller=sys._getframe(1))
             if plugin not in self._tasks:
                 # mark plugin as loaded for recursive circular stuff
                 self._tasks[plugin] = []
@@ -196,8 +197,15 @@ def collect_plugin_args(plugin):
     return args
 
 
-def resolve_plugin_func(plugin, function_name=PLUGIN_FUNCTION_NAME):
-    plugin = resolve_dotted_name(plugin)
+def resolve_plugin_func(
+    plugin,
+    *,
+    function_name=PLUGIN_FUNCTION_NAME,
+    caller: typing.Union[types.FrameType, int] = 0,
+):
+    plugin = util.resolve_dotted_name(
+        plugin, caller=(caller + 1) if isinstance(caller, int) else caller
+    )
     if inspect.ismodule(plugin):
         # apply default name
         plugin = getattr(plugin, function_name)
@@ -206,35 +214,6 @@ def resolve_plugin_func(plugin, function_name=PLUGIN_FUNCTION_NAME):
         raise ValueError(f"{plugin} must a coroutine or an async generator.")
 
     return plugin
-
-
-def resolve_dotted_name(name):
-    """Use pkg_resources style dotted name to resolve a name."""
-    # skip resolving for module and coroutine
-    if inspect.ismodule(name) or inspect.isroutine(name):
-        return name
-
-    # relative import
-    if name.startswith("."):
-        frame = inspect.currentframe()
-        while frame.f_globals["__name__"].startswith(__package__):
-            frame = frame.f_back
-        caller_package = frame.f_globals["__package__"]
-    else:
-        caller_package = None
-
-    part = ":"
-    module_name, _, attr_name = name.partition(part)
-
-    if part in attr_name:
-        raise ValueError(f"Invalid name: {name}", name)
-
-    resolved = importlib.import_module(module_name, caller_package)
-
-    if attr_name:
-        resolved = getattr(resolved, attr_name)
-
-    return resolved
 
 
 async def generate_async_result(fun_result):

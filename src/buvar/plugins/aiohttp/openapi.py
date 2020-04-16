@@ -192,4 +192,5 @@ class OpenApiApplication(aiohttp.web.Application):
 
 
 async def prepare(load: plugin.Loader):
+    # just load aiohttp
     await load(".")

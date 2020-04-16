@@ -19,5 +19,5 @@ async def get_bar(request):
 
 
 async def prepare(load: plugin.Loader):
-    await load("buvar.plugins.aiohttp")
+    await load("buvar.plugins.aiohttp.openapi")
     await operation_map.mount(ui=True)

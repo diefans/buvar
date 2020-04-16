@@ -98,28 +98,6 @@ def test_cancel_staging(event_loop):
     assert state == {"cancelled": True}
 
 
-def test_resolve_dotted_name():
-    from buvar import plugin
-
-    fun = plugin.resolve_dotted_name("dotted:name")
-
-    assert fun() == "foobar"
-
-
-def test_resolve_dotted_name_no_module():
-    from buvar import plugin
-
-    with pytest.raises(ModuleNotFoundError):
-        plugin.resolve_dotted_name("nomodule:name")
-
-
-def test_resolve_dotted_name_wrong_name():
-    from buvar import plugin
-
-    with pytest.raises(ValueError):
-        plugin.resolve_dotted_name("nomodule:na:me")
-
-
 def test_resolve_plugin_not_async(event_loop):
     from buvar import plugin
 

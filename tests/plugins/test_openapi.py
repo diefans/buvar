@@ -25,3 +25,6 @@ async def test_openapi(buvar_aiohttp_app, test_client, buvar_stage):
 
     assert res.status == 200
     assert await res.json() == {"foo": "bar"}
+
+    res = await client.get("/openapi")
+    assert res.status == 200

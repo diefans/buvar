@@ -1,4 +1,7 @@
-"""A simple background job manager."""
+"""A simple background job manager.
+
+Every background job gets added to the set and removed when done.
+You may use a :py:obj:`asyncio.Semaphore` to deal with concurrency."""
 import asyncio
 import sys
 
@@ -14,11 +17,11 @@ class Jobs(set):
         frame = sys._getframe(1)
         module_name = frame.f_globals["__name__"]
 
-        sl.info("Add background job", job=job, module=module_name)
         fut_job = asyncio.ensure_future(self.job(sync, job))
 
         super().add(fut_job)
         fut_job.add_done_callback(self.remove)
+        sl.info("Added background job", job=job, module=module_name, count=len(self))
 
         return fut_job
 

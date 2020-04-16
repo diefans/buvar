@@ -11,16 +11,20 @@ TODO
 - auth
 """
 import importlib.resources
+import string
 import typing
 import urllib.parse
 
 import aiofile
 import aiohttp.web
 import attr
-from buvar import config
 import cached_property
 import prance
 import structlog
+
+from buvar import config, di, plugin
+
+from . import json
 
 sl = structlog.get_logger()
 
@@ -133,6 +137,59 @@ class OperationMap:
                 raise OperationMapIncomplete(operations)
         return app
 
-    def mount_subapp(self, spec, app):
+    async def mount(
+        self,
+        *,
+        spec: typing.Optional[typing.Dict] = None,
+        app: typing.Optional[aiohttp.web.Application] = None,
+        ui: typing.Union[str, bool] = False,
+    ):
+
+        if spec is None:
+            config = await di.nject(OpenApiConfig)
+            spec = await config.spec
+
+        if app is None:
+            app = await di.nject(aiohttp.web.Application)
+
         subapp = self.create_subapp(spec)
         app.add_subapp(get_api_base(spec), subapp)
+
+        if ui:
+            openapi_routes = OpenApiRouteTableDef()
+            openapi_routes.get("/spec", name=BUVAR_OPENAPI_SPEC_ROUTE)(get_openapi_spec)
+            openapi_routes.get("/", name=BUVAR_OPENAPI_ROUTE)(get_openapi)
+            openapi_app = OpenApiApplication()
+            openapi_app.add_routes(openapi_routes)
+            app.add_subapp(BUVAR_OPENAPI_PATH if ui is True else ui, openapi_app)
+
+
+BUVAR_OPENAPI_PATH = "/openapi"
+BUVAR_OPENAPI_SPEC_ROUTE = "buvar_openapi_spec"
+BUVAR_OPENAPI_ROUTE = "buvar_openapi"
+
+
+async def get_openapi_spec(request):
+    config = await di.nject(OpenApiConfig)
+    return json.response(await config.spec)
+
+
+async def get_openapi(request):
+    with importlib.resources.path("buvar.plugins.aiohttp", "openapi.html") as path:
+        async with aiofile.AIOFile(path) as afp:
+            text = string.Template(await afp.read()).substitute(
+                openapi_spec=request.app.router[BUVAR_OPENAPI_SPEC_ROUTE].url_for()
+            )
+            return aiohttp.web.Response(text=text, content_type="text/html")
+
+
+class OpenApiRouteTableDef(aiohttp.web.RouteTableDef):
+    ...
+
+
+class OpenApiApplication(aiohttp.web.Application):
+    ...
+
+
+async def prepare(load: plugin.Loader):
+    await load(".")

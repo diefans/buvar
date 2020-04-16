@@ -40,7 +40,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.31.0",
+    "version": "0.32.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",
@@ -49,6 +49,7 @@ setup_kwargs = {
     "url": "https://gitlab.com/diefans/buvar",
     "package_dir": {"": "src"},
     "packages": find_packages("src"),
+    "include_package_data": True,
     # "package_data": {"": ["*"]},
     "install_requires": install_requires,
     "extras_require": {
@@ -65,8 +66,7 @@ setup_kwargs = {
             "pytest-aiohttp",
             "pdbpp",
         ],
-        "orjson": ["orjson>=2.5.0,<3.0"],
-        "all": ["aiohttp"],
+        "aiohttp": ["aiohttp", "orjson>=2.5.0,<3.0", "pendulum"],
     },
     "entry_points": entry_points,
     "python_requires": ">=3.7,<4.0",

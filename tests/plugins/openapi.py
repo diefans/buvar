@@ -1,5 +1,6 @@
 import aiohttp.web
-from buvar import context, di, plugin
+
+from buvar import plugin
 from buvar.plugins.aiohttp import openapi
 
 operation_map = openapi.OperationMap()
@@ -19,9 +20,4 @@ async def get_bar(request):
 
 async def prepare(load: plugin.Loader):
     await load("buvar.plugins.aiohttp")
-    openapi_config = await di.nject(openapi.OpenApiConfig)
-
-    spec = await openapi_config.spec
-    app = context.get(aiohttp.web.Application)
-    app._client_max_size = 0
-    operation_map.mount_subapp(spec, app)
+    await operation_map.mount(ui=True)

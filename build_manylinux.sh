@@ -23,6 +23,6 @@ for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
 
     auditwheel repair ./wheels/${PROJECT}*${PYTHON_VERSION}*.whl --plat ${PLATFORM} -w ./dist
 
-    ${PIP} install ${PROJECT}[tests] -f ./dist -f ./wheelhouse
+    ${PIP} install ${PROJECT}[aiohttp,tests] -f ./dist -f ./wheelhouse
     ${BIN}/pytest tests
 done

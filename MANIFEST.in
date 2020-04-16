@@ -1,1 +1,2 @@
 include build.py
+recursive-include src *.toml *.txt *.yaml *.html

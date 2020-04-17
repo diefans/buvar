@@ -7,7 +7,7 @@ import attr
 from buvar import context, util
 import orjson
 
-from . import attrs
+from .. import attrs
 
 
 class Jsonify(metaclass=abc.ABCMeta):

@@ -4,16 +4,18 @@ PLUGINS_MARK = "buvar_plugins"
 
 
 def pytest_configure(config):
-    # register an additional marker
     config.addinivalue_line(
-        "markers",
-        f"{PLUGINS_MARK}(*plugins): mark test to run only on named environment",
+        "markers", f"{PLUGINS_MARK}(*plugins): run the test in buvar plugin context"
     )
 
 
 def pytest_runtest_setup(item):
-    if PLUGINS_MARK in item.keywords and buvar_tasks.__name__ not in item.fixturenames:
-        item.fixturenames.extend((buvar_stage.__name__, buvar_tasks.__name__))
+    # use fixtures: buvar_plugin_context
+    if (
+        PLUGINS_MARK in item.keywords
+        and buvar_plugin_context.__name__ not in item.fixturenames
+    ):
+        item.fixturenames.append(buvar_plugin_context.__name__)
 
 
 @pytest.fixture
@@ -44,7 +46,7 @@ def buvar_stage(event_loop, buvar_context):
 
 
 @pytest.fixture
-def buvar_tasks(request, buvar_stage):
+def buvar_load(request, buvar_stage):
     # get plugins from mark
     plugins = next(
         (
@@ -61,7 +63,7 @@ def buvar_tasks(request, buvar_stage):
             buvar_stage.load(*plugins)
 
         # stage 2: tasks
-        yield buvar_stage.loader.tasks
+        yield buvar_stage.loader
     except Exception:
         raise
 
@@ -71,15 +73,15 @@ def buvar_tasks(request, buvar_stage):
 
 
 @pytest.fixture
-def buvar_plugin_context(buvar_stage, buvar_tasks):
+def buvar_plugin_context(buvar_stage, buvar_load):
     return buvar_stage.context
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_pyfunc_call(pyfuncitem):
     if PLUGINS_MARK in pyfuncitem.keywords:
-        stage = pyfuncitem.funcargs[buvar_stage.__name__]
-        pyfuncitem.obj = wrap_in_buvar_stage_context(stage.context, pyfuncitem.obj)
+        plugin_context = pyfuncitem.funcargs[buvar_plugin_context.__name__]
+        pyfuncitem.obj = wrap_in_buvar_stage_context(plugin_context, pyfuncitem.obj)
 
     yield
 
@@ -111,8 +113,10 @@ def loop(event_loop):
 
 
 @pytest.fixture
-def buvar_aiohttp_app(buvar_tasks, buvar_stage):
+def buvar_aiohttp_app(buvar_plugin_context, buvar_stage):
     import aiohttp.web
 
-    app = buvar_stage.context.get(aiohttp.web.Application)
+    buvar_stage.load("buvar.plugins.aiohttp")
+
+    app = buvar_plugin_context.get(aiohttp.web.Application)
     return app

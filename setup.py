@@ -40,7 +40,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.33.0",
+    "version": "0.34.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",
@@ -54,9 +54,9 @@ setup_kwargs = {
     "install_requires": install_requires,
     "extras_require": {
         "tests": [
-            "pytest>=4.6,<5.0",
+            "pytest>=4.6",
             "pytest-cov>=^2.7,<3.0",
-            "pytest-asyncio>=0.10.0,<0.11",
+            "pytest-asyncio>=0.11.0",
             "pytest-benchmark>=3.2.2<4.0",
             "mock>=3.0<4.0",
             "pytest-mock>=1.10<2.0",

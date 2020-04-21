@@ -9,7 +9,7 @@ def loop(event_loop):
 
 
 @pytest.mark.asyncio
-@pytest.mark.buvar_plugins("buvar.plugins.aiohttp")
+@pytest.mark.buvar_plugins()
 async def test_app_dummy(buvar_aiohttp_app, test_client):
     import aiohttp.web
 

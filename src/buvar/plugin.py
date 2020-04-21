@@ -78,11 +78,14 @@ class Loader:
     async def __call__(self, *plugins):
         """Hook the plugin from another plugin.
 
-        The plugin may return an awaitable, an iterable of awaitable or an
+        The plugin may return an awaitable, an iterable of awaitables or an
         asyncgenerator of awaitables.
 
+        The plugin function may use annotated arguments, which are provided by
+        the actual stage context.
+
         :param plugins: the plugin to load
-        :type plugins: list of callables which may have one argument
+        :type plugins: list of callables
         """
         for plugin in plugins:
             plugin = resolve_plugin_func(plugin, caller=sys._getframe(1))
@@ -100,6 +103,19 @@ class Loader:
 
 
 class Stage:
+    """Stage manages the context stack while running each phase of the machinery.
+
+    The stack typically has four layers:
+
+    1. the default import time context
+
+    2. the components context passed to the stage
+
+    3. stage management context, e.g. Cancel, Teardown, Loader
+
+    4. the shared plugin preparation context
+    """
+
     def __init__(self, components=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.context = (
@@ -134,6 +150,17 @@ class Stage:
         self.loop.run_until_complete(self.teardown.wait())
 
     def run(self, *plugins):
+        """Start the asyncio process by bootstrapping the root plugins.
+
+        We have a three phase setup:
+
+        1. run plugin hooks, to register arbitrary stuff and mainly gather a set of
+        asyncio tasks for the second phase
+
+        2. run all registered tasks together until complete
+
+        3. teardown
+        """
         try:
             # stage 1: bootstrap plugins
             self.load(*plugins)
@@ -145,16 +172,6 @@ class Stage:
 
 
 def stage(*plugins, components=None, loop=None):
-    """Start the asyncio process by boostrapping the root plugin.
-
-    We have a three phase setup:
-
-    1. run plugin hooks, to register arbitrary stuff and mainly gather a set of
-    asyncio tasks for the second phase
-
-    2. run all registered tasks together until complete
-    """
-
     if loop is None:
         loop = asyncio.get_event_loop()
 

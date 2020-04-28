@@ -27,7 +27,7 @@ install_requires = [
     "attrs>=19.1,<20.0",
     "cattrs>=1.0,<2.0",
     "multidict>=4.5,<5.0",
-    "structlog>=19.1,<20.0",
+    "structlog>=20.1.0",
     "toml>=0.10,<0.11",
     "tomlkit>=0.5.3,<0.6.0",
     "typing_inspect>=0.4.0<0.5",
@@ -40,7 +40,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.34.0",
+    "version": "0.35.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",
@@ -64,6 +64,7 @@ setup_kwargs = {
             "pytest-randomly>=3.1<4.0",
             "pytest-doctestplus>=0.5<1.0",
             "pytest-aiohttp",
+            "pytest-anything",
             "pdbpp",
         ],
         "aiohttp": ["aiohttp", "orjson>=2.5.0,<3.0", "pendulum"],

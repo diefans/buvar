@@ -20,7 +20,7 @@ def test_stringify_dict_keys(obj, result):
     assert stringified == result
 
 
-def test_simple_structlog_json(capsys, mocker, caplog):
+def _test_simple_structlog_json(capsys, mocker, caplog):
     from buvar import log
     import logging
     import structlog

@@ -3,18 +3,15 @@ import pytest
 
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.plugins.bg")
-async def test_bg_error(buvar_stage, capsys):
+async def test_bg_error(log_output, Anything):
     # TODO XXX FIXME without buvar_stage, I get
     # --- Logging error ---
     # Traceback (most recent call last):
     #   File "/home/olli/.pyenv/versions/3.7.4/lib/python3.7/logging/__init__.py", line 1028, in emit
     #     stream.write(msg + self.terminator)
     # ValueError: I/O operation on closed file.
-    import json
     from buvar.plugins import bg
-    from buvar import context, log
-
-    log.setup_logging(tty=False)
+    from buvar import context
 
     async def make_error():
         raise Exception("foobar")
@@ -24,9 +21,11 @@ async def test_bg_error(buvar_stage, capsys):
     jobs.add(make_error())
 
     await jobs
-    captured = capsys.readouterr()
-    msgs = list(map(json.loads, captured.err.strip().split("\n")))
-    assert "Exception: foobar" in msgs[1]["exception"]
+    assert {
+        "event": "Background job failed",
+        "exc_info": Anything,
+        "log_level": "error",
+    } in log_output.entries
 
 
 @pytest.mark.asyncio

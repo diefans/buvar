@@ -3,6 +3,7 @@ version: '3'
 volumes:
   wheelhouse: {}
   pipcache: {}
+  build: {}
 
 
 services:
@@ -13,11 +14,13 @@ services:
       PLAT: manylinux2010_x86_64
     volumes:
       - "./:/io"
-      - "wheelhouse:/io/wheelhouse"
+      #- "wheelhouse:/io/wheelhouse"
       - "pipcache:/root/.cache/pip"
+      #- "build:/io/build"
     tmpfs:
       - /io/build
       - /io/tests/__pycache__
       - /io/wheels
+      - /io/wheelhouse
     working_dir: /io
     command: ./build_manylinux.sh

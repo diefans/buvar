@@ -90,6 +90,7 @@ class Loader:
         for plugin in plugins:
             plugin = resolve_plugin_func(plugin, caller=sys._getframe(1))
             if plugin not in self._tasks:
+                sl.info("Plugin", plugin=plugin)
                 # mark plugin as loaded for recursive circular stuff
                 self._tasks[plugin] = []
                 # load plugin
@@ -131,6 +132,8 @@ class Stage:
         self.context = self.context.push()
 
     def load(self, *plugins):
+        sl.info("Loading plugins")
+
         @context.run_child(self.context)
         def _load():
             self.loop.run_until_complete(self.loader(*plugins))
@@ -138,6 +141,8 @@ class Stage:
         _load()
 
     def run_tasks(self):
+        sl.info("Running tasks", tasks=self.loader.tasks)
+
         @context.run_child(self.context)
         def _run_tasks():
             return self.loop.run_until_complete(
@@ -147,6 +152,7 @@ class Stage:
         return _run_tasks()
 
     def run_teardown(self):
+        sl.info("Teardown", tasks=self.teardown.tasks)
         self.loop.run_until_complete(self.teardown.wait())
 
     def run(self, *plugins):
@@ -164,6 +170,7 @@ class Stage:
         try:
             # stage 1: bootstrap plugins
             self.load(*plugins)
+
             # stage 2: run main task and collect teardown tasks
             return self.run_tasks()
         finally:

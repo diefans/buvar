@@ -1,6 +1,20 @@
 import pytest
 
 
+@pytest.fixture
+def log_output():
+    from structlog import testing
+
+    return testing.LogCapture()
+
+
+@pytest.fixture(autouse=True)
+def configure_structlog(log_output):
+    import structlog
+
+    structlog.configure(processors=[log_output])
+
+
 @pytest.fixture(params=["cython", "python"], autouse=True)
 def implementation(request, mocker):
     import mock

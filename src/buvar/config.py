@@ -109,7 +109,7 @@ class ConfigSource(dict):
             values = self.get(name, {})
 
         env_config = create_env_config(
-            config_cls, *(self.env_prefix + (name,) if name else ())
+            config_cls, *(self.env_prefix + ((name,) if name else ()))
         )
         values = util.merge_dict(values, env_config)
         # merge environment
@@ -197,6 +197,7 @@ def create_env_config(cls, *env_prefix):
     ):
         env_name = "_".join(map(lambda x: x.upper(), env_prefix + path))
         if env_name in os.environ:
+            logger.debug("Overriding config by env", var=env_name)
             target[path[-1]] = os.environ[env_name]
     return env_config
 

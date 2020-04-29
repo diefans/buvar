@@ -1,7 +1,7 @@
 import aiohttp.web
 
-from buvar import plugin
-from buvar.plugins.aiohttp import openapi
+from buvar import plugin, di
+from buvar.plugins.aiohttp import openapi, json
 
 operation_map = openapi.OperationMap()
 
@@ -15,9 +15,10 @@ async def post_foo(request):
 
 @operation_map.register()
 async def get_bar(request):
-    return aiohttp.web.json_response({"foo": "bar"})
+    op = await di.nject(openapi.Operation, request=request)
+    return json.response({"foo": "bar", "operation": op})
 
 
 async def prepare(load: plugin.Loader):
-    await load("buvar.plugins.aiohttp.openapi")
+    await load("buvar.plugins.aiohttp.openapi", "buvar.plugins.aiohttp.json")
     await operation_map.mount(ui=True)

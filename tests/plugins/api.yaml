@@ -22,6 +22,11 @@ paths:
           type: string
     get:
       operationId: get_bar
+      parameters:
+        - in: query
+          name: foo
+          schema:
+            type: string
       responses:
         "200":
           description: test

@@ -22,7 +22,7 @@ import cached_property
 import prance
 import structlog
 
-from buvar import config, di, plugin
+from buvar import config, context, di, plugin
 
 from . import json
 
@@ -53,18 +53,24 @@ class Operation:
     id: str
     path: Path
     method: str
+    parameters: typing.Optional[typing.List[typing.Dict]]
     responses: typing.Any
     request_body: typing.Any
 
     def add(self, routes: aiohttp.web.RouteTableDef, func):
         method = getattr(routes, self.method)
         method(self.path.url, name=self.id)(func)
+        context.add(self, name=self.id)
+
+    @classmethod
+    async def adapt(cls, request: aiohttp.web.Request) -> "Operation":
+        return context.get(cls, name=request.match_info.route.name)
 
 
 def resolve_operations(openapi_spec):
     for url, methods in openapi_spec["paths"].items():
-        parameters = methods.get("parameters")
-        path = Path(url=url, parameters=parameters)
+        path_parameters = methods.get("parameters")
+        path = Path(url=url, parameters=path_parameters)
         for method, op in methods.items():
             if "parameters" == method:
                 continue
@@ -75,6 +81,7 @@ def resolve_operations(openapi_spec):
                 id=op["operationId"],
                 path=path,
                 method=method.lower(),
+                parameters=op.get("parameters"),
                 responses=op.get("responses"),
                 request_body=op.get("requestBody"),
             )
@@ -194,3 +201,4 @@ class OpenApiApplication(aiohttp.web.Application):
 async def prepare(load: plugin.Loader):
     # just load aiohttp
     await load(".")
+    di.register(Operation.adapt)

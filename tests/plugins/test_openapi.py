@@ -21,7 +21,25 @@ async def test_openapi(buvar_aiohttp_app, test_client):
     res = await client.post("/api/foo")
 
     assert res.status == 200
-    assert await res.json() == {"foo": "bar"}
+    data = await res.json()
+    assert data == {
+        "foo": "bar",
+        "operation": {
+            "id": "get_bar",
+            "method": "get",
+            "parameters": [
+                {"in": "query", "name": "foo", "schema": {"type": "string"}}
+            ],
+            "path": {
+                "parameters": [
+                    {"in": "path", "name": "id", "schema": {"type": "string"}}
+                ],
+                "url": "/bar/{id}",
+            },
+            "request_body": None,
+            "responses": {"200": {"description": "test"}},
+        },
+    }
 
     res = await client.get("/openapi")
     assert res.status == 200

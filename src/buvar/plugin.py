@@ -90,7 +90,7 @@ class Loader:
         for plugin in plugins:
             plugin = resolve_plugin_func(plugin, caller=sys._getframe(1))
             if plugin not in self._tasks:
-                sl.info("Plugin", plugin=plugin)
+                sl.info("Plugin", plugin=util.fqdn(plugin))
                 # mark plugin as loaded for recursive circular stuff
                 self._tasks[plugin] = []
                 # load plugin

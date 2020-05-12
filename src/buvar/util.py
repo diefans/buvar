@@ -83,3 +83,7 @@ def resolve_dotted_name(name, *, caller: typing.Union[types.FrameType, int] = 0)
         resolved = getattr(resolved, attr_name)
 
     return resolved
+
+
+def fqdn(obj):
+    return f"{obj.__module__}.{obj.__qualname__}"

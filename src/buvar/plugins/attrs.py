@@ -29,7 +29,6 @@ class Converter(cattr.Converter):
             try:
                 val = obj[name]
             except KeyError:
-                continue
                 if typing_inspect.is_optional_type(type_):
                     if a.default is attr.NOTHING:
                         val = None

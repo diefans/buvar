@@ -168,7 +168,8 @@ class GenericFactoryAdapter(ClassmethodAdapter):
             if cls_type is target:
                 bound = typing_inspect.get_bound(cls_type)
                 if bound:
-                    bound = bound._evaluate(frame.f_globals, frame.f_locals)
+                    # we use frame locals to enable references within function scope
+                    bound = bound._evaluate(impl.__func__.__globals__, frame.f_locals)
                     if bound is impl.__self__:
                         args.cls_type = cls_type
                         args.bound = bound

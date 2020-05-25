@@ -6,7 +6,7 @@ stages:
 .tests: &tests
   stage: tests
   script:
-    - pip install -e .[all,tests]
+    - pip install -e .[all]
     - pytest
 
 #tests_python_36:

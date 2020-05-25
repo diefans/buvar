@@ -1,3 +1,5 @@
+import itertools
+
 from setuptools import dist, find_packages, setup
 from setuptools.command.install import install
 
@@ -35,6 +37,25 @@ install_requires = [
     "cached_property<2",
     "prance[osv]<1",
 ]
+extras_require = {
+    "tests": [
+        "pytest>=4.6",
+        "pytest-cov>=^2.7,<3.0",
+        "pytest-asyncio>=0.11.0",
+        "pytest-benchmark>=3.2.2<4.0",
+        "mock>=3.0<4.0",
+        "pytest-mock>=1.10<2.0",
+        "pytest-watch>=4.2<5.0",
+        "pytest-randomly>=3.1<4.0",
+        "pytest-doctestplus>=0.5<1.0",
+        "pytest-aiohttp",
+        "pytest-anything",
+        "pdbpp",
+    ],
+    "aiohttp": ["aiohttp", "orjson>=2.5.0,<3.0", "pendulum"],
+}
+extras_require["all"] = list(itertools.chain(extras_require.values()))
+
 
 entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
@@ -52,23 +73,7 @@ setup_kwargs = {
     "include_package_data": True,
     # "package_data": {"": ["*"]},
     "install_requires": install_requires,
-    "extras_require": {
-        "tests": [
-            "pytest>=4.6",
-            "pytest-cov>=^2.7,<3.0",
-            "pytest-asyncio>=0.11.0",
-            "pytest-benchmark>=3.2.2<4.0",
-            "mock>=3.0<4.0",
-            "pytest-mock>=1.10<2.0",
-            "pytest-watch>=4.2<5.0",
-            "pytest-randomly>=3.1<4.0",
-            "pytest-doctestplus>=0.5<1.0",
-            "pytest-aiohttp",
-            "pytest-anything",
-            "pdbpp",
-        ],
-        "aiohttp": ["aiohttp", "orjson>=2.5.0,<3.0", "pendulum"],
-    },
+    "extras_require": extras_require,
     "entry_points": entry_points,
     "python_requires": ">=3.7,<4.0",
     "classifiers": [

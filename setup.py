@@ -52,7 +52,7 @@ extras_require = {
         "pytest-anything",
         "pdbpp",
     ],
-    "aiohttp": ["aiohttp", "orjson>=2.5.0,<3.0", "pendulum"],
+    "aiohttp": ["aiohttp", "orjson", "pendulum"],
 }
 extras_require["all"] = list(itertools.chain(extras_require.values()))
 
@@ -61,7 +61,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.39.0",
+    "version": "0.39.1",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",

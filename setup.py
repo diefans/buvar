@@ -35,7 +35,6 @@ install_requires = [
     "typing_inspect>=0.4.0<0.5",
     "aiofile<2",
     "cached_property<2",
-    "prance[osv]<1",
 ]
 extras_require = {
     "tests": [
@@ -48,11 +47,9 @@ extras_require = {
         "pytest-watch>=4.2<5.0",
         "pytest-randomly>=3.1<4.0",
         "pytest-doctestplus>=0.5<1.0",
-        "pytest-aiohttp",
         "pytest-anything",
         "pdbpp",
     ],
-    "aiohttp": ["aiohttp", "orjson", "pendulum"],
 }
 extras_require["all"] = list(itertools.chain(extras_require.values()))
 
@@ -61,7 +58,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.39.1",
+    "version": "0.40.0",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",

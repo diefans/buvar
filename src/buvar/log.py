@@ -3,7 +3,9 @@ import logging
 import logging.config
 import os
 import sys
+import typing
 
+import attr
 import structlog
 from structlog.processors import JSONRenderer
 
@@ -50,93 +52,107 @@ LOGGING_LEVEL_NAMES = list(
 )
 DEFAULT_LOGGING_LEVEL = logging.getLevelName(logging.WARNING)
 PID = os.getpid()
+timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
 
 
-def setup_logging(
-    *,
-    tty=sys.stdout.isatty(),
-    level=logging.DEBUG,
-    user_config=None,
-    capture_warnings=True,
-    redirect_print=False,
-    json_renderer=JSONRenderer(
+@attr.s(auto_attribs=True, kw_only=True)
+class LogConfig:
+    tty: bool = sys.stdout.isatty()
+    level: typing.Union[int, str] = logging.DEBUG
+    user_config: typing.Dict = None
+    capture_warnings: bool = True
+    redirect_print: bool = False
+    json_renderer: JSONRenderer = JSONRenderer(
         serializer=lambda obj, **kwargs: json_dumps(stringify_dict_keys(obj), **kwargs)
-    ),
-):
-
-    if isinstance(level, str):
-        level = logging.getLevelName(level.upper())
-
-    renderer = structlog.dev.ConsoleRenderer() if tty else json_renderer
-    timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
-    pre_chain = [
-        # Add the log level and a timestamp to the event_dict if the log entry
-        # is not from structlog.
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.processors.format_exc_info,
-        timestamper,
-        add_os_pid,
-        # ExtractLogExtra(
-        #     "spec",
-        #     "url",
-        #     "mimetype",
-        #     "has_body",
-        #     "swagger_yaml",
-        #     "method",
-        #     "path",
-        #     "operation_id",
-        #     "data",
-        # ),
-    ]
-
-    config = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "structured": {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": renderer,
-                "foreign_pre_chain": pre_chain,
-            }
-        },
-        "handlers": {
-            "default": {"class": "logging.StreamHandler", "formatter": "structured"}
-        },
-        "loggers": {"": {"handlers": ["default"], "level": level, "propagate": True}},
-    }
-    if user_config:
-        util.merge_dict(user_config, dest=config)
-    logging.config.dictConfig(config)
-
-    logging.captureWarnings(capture_warnings)
-    processors = [
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        timestamper,
-        add_os_pid,
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-    ]
-
-    structlog.configure(
-        processors=processors,
-        context_class=structlog.threadlocal.wrap_dict(dict),
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
     )
 
-    if redirect_print:
-        # redirect stdio print
-        print_log = structlog.get_logger("print")
-        sys.stderr = StdioToLog(print_log)
-        sys.stdout = StdioToLog(print_log)
+    @property
+    def processors(self):
+        processors = [
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            timestamper,
+            add_os_pid,
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ]
+        return processors
 
-    # log uncaught exceptions
-    sys.excepthook = uncaught_exception
+    @property
+    def pre_chain(self):
+        pre_chain = [
+            # Add the log level and a timestamp to the event_dict if the log entry
+            # is not from structlog.
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.processors.format_exc_info,
+            timestamper,
+            add_os_pid,
+            # ExtractLogExtra(
+            #     "spec",
+            #     "url",
+            #     "mimetype",
+            #     "has_body",
+            #     "swagger_yaml",
+            #     "method",
+            #     "path",
+            #     "operation_id",
+            #     "data",
+            # ),
+        ]
+        return pre_chain
+
+    def setup(self):
+        if isinstance(self.level, str):
+            level = logging.getLevelName(self.level.upper())
+
+        renderer = structlog.dev.ConsoleRenderer() if self.tty else self.json_renderer
+        config = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "structured": {
+                    "()": structlog.stdlib.ProcessorFormatter,
+                    "processor": renderer,
+                    "foreign_pre_chain": self.pre_chain,
+                }
+            },
+            "handlers": {
+                "default": {"class": "logging.StreamHandler", "formatter": "structured"}
+            },
+            "loggers": {
+                "": {"handlers": ["default"], "level": level, "propagate": True}
+            },
+        }
+        if self.user_config:
+            util.merge_dict(self.user_config, dest=config)
+        logging.config.dictConfig(config)
+
+        logging.captureWarnings(self.capture_warnings)
+
+        structlog.configure(
+            processors=self.processors,
+            context_class=structlog.threadlocal.wrap_dict(dict),
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            wrapper_class=structlog.stdlib.BoundLogger,
+            cache_logger_on_first_use=True,
+        )
+
+        if self.redirect_print:
+            # redirect stdio print
+            print_log = structlog.get_logger("print")
+            sys.stderr = StdioToLog(print_log)
+            sys.stdout = StdioToLog(print_log)
+
+        # log uncaught exceptions
+        sys.excepthook = uncaught_exception
+
+
+def setup_logging(**kwargs):
+    log_config = LogConfig(**kwargs)
+    log_config.setup()
 
 
 class ExtractLogExtra:  # noqa: R0903

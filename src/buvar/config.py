@@ -134,7 +134,7 @@ class Config:
     __buvar_config_section__: typing.Optional[str] = skip_section
     __buvar_config_sections__: typing.Dict[str, type] = {}
 
-    def __init_subclass__(cls, section: str = skip_section, **kwargs):
+    def __init_subclass__(cls, *, section: str = skip_section, **kwargs):
         if section is skip_section:
             return
         if section in cls.__buvar_config_sections__:

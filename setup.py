@@ -26,27 +26,27 @@ with open("README.rst") as f:
 
 
 install_requires = [
-    "attrs>=19.1,<20.0",
-    "cattrs>=1.0,<2.0",
+    "attrs",
+    "cattrs",
     "multidict>=4.5,<5.0",
     "structlog>=20.1.0",
-    "toml>=0.10,<0.11",
-    "tomlkit>=0.5.3,<0.6.0",
-    "typing_inspect>=0.4.0<0.5",
+    "toml>=0.10",
+    "tomlkit>=0.5.3",
+    "typing_inspect>=0.4.0",
     "aiofile<2",
-    "cached_property<2",
+    "cached_property",
 ]
 extras_require = {
     "tests": [
         "pytest>=4.6",
-        "pytest-cov>=^2.7,<3.0",
+        "pytest-cov>=^2.7",
         "pytest-asyncio>=0.11.0",
-        "pytest-benchmark>=3.2.2<4.0",
-        "mock>=3.0<4.0",
-        "pytest-mock>=1.10<2.0",
-        "pytest-watch>=4.2<5.0",
-        "pytest-randomly>=3.1<4.0",
-        "pytest-doctestplus>=0.5<1.0",
+        "pytest-benchmark>=3.2.2",
+        "mock>=3.0",
+        "pytest-mock>=1.10",
+        "pytest-watch>=4.2",
+        "pytest-randomly>=3.1",
+        "pytest-doctestplus>=0.5",
         "pytest-anything",
         "pdbpp",
     ],
@@ -58,7 +58,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.41.0",
+    "version": "0.41.1",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",

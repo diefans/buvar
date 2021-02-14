@@ -48,6 +48,9 @@ from buvar import util
 from .exc import ResolveError, missing
 
 
+PY_39 = sys.version_info >= (3, 9)
+
+
 class AdapterError(Exception):
     pass
 
@@ -161,7 +164,7 @@ class GenericFactoryAdapter(ClassmethodAdapter):
             and generic_type.__origin__ is type
             and typing_inspect.is_generic_type(generic_type)
         ):
-            cls_type, = typing_inspect.get_args(generic_type)
+            (cls_type,) = typing_inspect.get_args(generic_type)
             target = args.hints["return"]
 
             # assure bound type equals classmethod owner
@@ -169,7 +172,14 @@ class GenericFactoryAdapter(ClassmethodAdapter):
                 bound = typing_inspect.get_bound(cls_type)
                 if bound:
                     # we use frame locals to enable references within function scope
-                    bound = bound._evaluate(impl.__func__.__globals__, frame.f_locals)
+                    if PY_39:
+                        bound = bound._evaluate(
+                            impl.__func__.__globals__, frame.f_locals, set()
+                        )
+                    else:
+                        bound = bound._evaluate(
+                            impl.__func__.__globals__, frame.f_locals
+                        )
                     if bound is impl.__self__:
                         args.cls_type = cls_type
                         args.bound = bound

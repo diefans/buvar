@@ -14,7 +14,7 @@ def test_run(event_loop):
 def test_run_relative_out_of_packages(event_loop):
     from buvar import plugin
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ImportError):
         plugin.stage("tests.baz_plugin", loop=event_loop)
 
 

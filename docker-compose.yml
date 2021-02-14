@@ -11,7 +11,32 @@ services:
     image: quay.io/pypa/manylinux2010_x86_64:latest
     user: root
     environment:
-      PLAT: manylinux2010_x86_64
+      PLATFORM: manylinux2010_x86_64
+      PYTHON_VERSIONS: |
+        cp37-cp37m
+        cp38-cp38
+    volumes:
+      - "./:/io"
+      #- "wheelhouse:/io/wheelhouse"
+      - "pipcache:/root/.cache/pip"
+      #- "build:/io/build"
+    tmpfs:
+      - /io/build
+      - /io/tests/__pycache__
+      - /io/wheels
+      - /io/wheelhouse
+    working_dir: /io
+    command: ./build_manylinux.sh
+
+  manylinux2014:
+    image: quay.io/pypa/manylinux2014_x86_64:latest
+    user: root
+    environment:
+      PLATFORM: manylinux2014_x86_64
+      PYTHON_VERSIONS: |
+        cp37-cp37m
+        cp38-cp38
+        cp39-cp39
     volumes:
       - "./:/io"
       #- "wheelhouse:/io/wheelhouse"

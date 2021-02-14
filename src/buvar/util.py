@@ -77,7 +77,10 @@ def resolve_dotted_name(name, *, caller: typing.Union[types.FrameType, int] = 0)
     if part in attr_name:
         raise ValueError(f"Invalid name: {name}", name)
 
-    resolved = importlib.import_module(module_name, caller_package)
+    try:
+        resolved = importlib.import_module(module_name, caller_package)
+    except ValueError as ex:
+        raise ImportError(*ex.args)
 
     if attr_name:
         resolved = getattr(resolved, attr_name)

@@ -1,3 +1,12 @@
+"""
+Fixtures and markers for testing.
+
+`buvar_plugins` mark
+
+.. code-block::
+
+    @pytest.mark.buvar_plugins("buvar.config")
+"""
 import pytest
 
 PLUGINS_MARK = "buvar_plugins"
@@ -47,6 +56,7 @@ def buvar_stage(event_loop, buvar_context):
 
 @pytest.fixture
 def buvar_load(request, buvar_stage):
+    """Load plugins marked via `pytest.mark.buvar_plugins`."""
     # get plugins from mark
     plugins = next(
         (
@@ -74,19 +84,21 @@ def buvar_load(request, buvar_stage):
 
 @pytest.fixture
 def buvar_plugin_context(buvar_stage, buvar_load):
+    """The shared context while plugins are prepared."""
     return buvar_stage.context
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_pyfunc_call(pyfuncitem):
+    """Wrap marked tests in buvar plugin context."""
     if PLUGINS_MARK in pyfuncitem.keywords:
         plugin_context = pyfuncitem.funcargs[buvar_plugin_context.__name__]
-        pyfuncitem.obj = wrap_in_buvar_stage_context(plugin_context, pyfuncitem.obj)
+        pyfuncitem.obj = wrap_in_buvar_plugin_context(plugin_context, pyfuncitem.obj)
 
     yield
 
 
-def wrap_in_buvar_stage_context(context, func):
+def wrap_in_buvar_plugin_context(context, func):
     """Enable test function to run in plugin context."""
     import functools
     import contextvars

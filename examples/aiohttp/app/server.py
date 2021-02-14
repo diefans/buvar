@@ -44,5 +44,9 @@ async def prepare():
     sl.info("Running web server", host=aiohttp_config.host, port=aiohttp_config.port)
     # return server task
     yield aiohttp.web._run_app(  # noqa: W0212
-        aiohttp_app, host=aiohttp_config.host, port=aiohttp_config.port, print=None
+        aiohttp_app,
+        host=aiohttp_config.host,
+        port=aiohttp_config.port,
+        print=None,
+        access_log=aiohttp_config.access_log,
     )

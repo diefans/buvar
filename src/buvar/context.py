@@ -7,9 +7,11 @@ import functools
 from . import components
 
 
-buvar_context: contextvars.ContextVar = contextvars.ContextVar(__name__)
+buvar_context: contextvars.ContextVar[components.Components] = contextvars.ContextVar(
+    __name__
+)
 
-# we provide a global available context
+# we provide a globally available context
 buvar_context.set(components.Components())
 
 
@@ -91,9 +93,8 @@ def child(*stack):
         buvar_context.reset(token)
 
 
-def run_child(context=None):
-    if context is None:
-        context = current_context().push()
+def run(context: components.Components):
+    """Run the decorated function within the provided context."""
 
     def decorator(func):
         @functools.wraps(func)

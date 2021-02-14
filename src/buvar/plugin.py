@@ -134,7 +134,7 @@ class Stage:
     def load(self, *plugins):
         sl.info("Loading plugins")
 
-        @context.run_child(self.context)
+        @context.run(self.context)
         def _load():
             self.loop.run_until_complete(self.loader(*plugins))
 
@@ -143,7 +143,7 @@ class Stage:
     def run_tasks(self):
         sl.info("Running tasks", tasks=self.loader.tasks)
 
-        @context.run_child(self.context)
+        @context.run(self.context)
         def _run_tasks():
             return self.loop.run_until_complete(
                 run(tasks=self.loader.tasks, evt_cancel=self.cancel)

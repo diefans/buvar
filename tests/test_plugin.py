@@ -135,13 +135,21 @@ def test_broken_task(event_loop):
     state = {}
 
     async def broken_plugin(teardown: plugin.Teardown):
-        async def teardown_task():
-            state["teardown_task"] = True
-
-        teardown.add(teardown_task())
+        fut_task = asyncio.Future()
 
         async def task():
-            await asyncio.Future()
+            await fut_task
+
+        async def teardown_task():
+            state["teardown_task"] = True
+            fut_task.cancel()
+
+            try:
+                await fut_task
+            except asyncio.CancelledError:
+                ...
+
+        teardown.add(teardown_task())
 
         async def broken_task():
             raise Exception("Task is broken")

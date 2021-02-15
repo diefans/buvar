@@ -33,7 +33,6 @@ install_requires = [
     "toml>=0.10",
     "tomlkit>=0.5.3",
     "typing_inspect>=0.4.0",
-    "aiofile<2",
     "cached_property",
 ]
 extras_require = {
@@ -58,7 +57,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.41.3",
+    "version": "0.41.4",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",

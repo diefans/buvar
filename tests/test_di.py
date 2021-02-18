@@ -232,3 +232,16 @@ async def test_abc_meta_derived(adapters):
 
     bar = await adapters.nject(Bar)
     assert isinstance(bar, Bar)
+
+
+@pytest.mark.asyncio
+async def test_adapter_string_return(adapters):
+    class Foo:
+        @classmethod
+        def adapt(cls, str: str) -> "Foo":
+            return cls()
+
+    adapters.register(Foo)
+
+    foo = await adapters.nject(Foo)
+    assert isinstance(foo, Foo)

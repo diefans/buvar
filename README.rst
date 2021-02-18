@@ -8,16 +8,16 @@ maintain microservice like applications.
 a plugin mechanic
 -----------------
 
-
 - plugin may depend on other plugins
 
 - plugins yield tasks to run
 
-- a registry serves as a store for application components created by plugins
+- a context registry serves as a store for application components created by plugins
 
 - a dependency injection creates intermediate components
 
-- a config source is mapped to plugin specific needs
+- a config source is mapped to plugin specific configuration and may be fully
+  overridden by environment vars
 
 - structlog boilerplate for json/tty logging
 
@@ -28,12 +28,12 @@ You bootstrap like following:
 
     from buvar import plugin
 
-    plugin.stage("some.module.with.plugin.function")
+    plugin.stage("some.module.with.prepare")
 
 
 .. code-block:: python
 
-   # some.module.with.plugin.function
+   # some.module.with.prepare
    from buvar import context, plugin
 
    class Foo:
@@ -49,7 +49,7 @@ You bootstrap like following:
        await asyncio.Future()
 
 
-   # you may omit include in arguments
+   # there is also plugin.Teardown and plugin.Cancel
    async def prepare(load: plugin.Loader):
        await load('.another.plugin')
 
@@ -69,7 +69,7 @@ a components and dependency injection solution
 Dependency injection relies on registered adapters, which may be a function, a
 method, a class, a classmethod or a generic classmthod.
 
-Dependencies are looked up in components or may be provided via, arguments.
+Dependencies are looked up in components or may be provided via kwargs.
 
 
 .. code-block:: python
@@ -104,13 +104,15 @@ Dependencies are looked up in components or may be provided via, arguments.
        di.register(Foo.adapt)
        di.register(adapt)
 
+       yield task()
+
 
 
 a config source
 ---------------
 
 `buvar.config.ConfigSource` is just a `dict`, which merges
-arbitrary dicts into one. It serves a the single source of truth for
+arbitrary dicts into one. It serves as the single source of truth for
 application variability.
 
 You can load a section of config values into your custom `attrs`_ class instance. ConfigSource will override values by environment variables if present.
@@ -181,10 +183,10 @@ component, he will receive the mapped config in one call.
 
 
    async def prepare(load: plugin.Loader):
-       # this would by typically placed in the main entry point
+       # this would by typically placed in the main CLI entry point
        source = context.add(config.ConfigSource(toml.load('config.toml'), env_prefix="APP"))
 
-       # to provide the adapter to di, which could also be done inthe main entry point
+       # to provide the adapter to di, which could also be done in the main entry point
        await load(config)
        foobar_config = await di.nject(FoobarConfig)
 
@@ -200,7 +202,8 @@ Just `structlog`_ boilerplate.
 
    from buvar import log
 
-   log.setup_logging(sys.stdout.isatty(), general_config.log_level)
+   log_config = log.LogConfig(tty=sys.stdout.isatty(), level="DEBUG")
+   log_config.setup()
 
 
 .. _Pyramid: https://github.com/Pylons/pyramid

@@ -62,6 +62,7 @@ class Teardown:
         return reversed(self.tasks)
 
     async def wait(self):
+        # XXX TODO distinct between corotines, task, and normal functions
         await asyncio.gather(*self)
 
 

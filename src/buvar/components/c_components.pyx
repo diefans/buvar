@@ -24,7 +24,7 @@ cdef class Components:
     def stack(self):
         return self._stack
 
-    cdef _add(self, object item, namespace=None, str name=None):
+    cdef _add(self, object item, namespace=None, name=None):
         cdef dict space
 
         if isinstance(item, type):

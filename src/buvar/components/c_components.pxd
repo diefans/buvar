@@ -8,6 +8,6 @@ cdef class Components:
 
     cdef _push(self, namespaces, stack)
     cpdef pop(self)
-    cdef _add(self, item, namespace=*, str name=*)
+    cdef _add(self, item, namespace=*, name=*)
     cdef dict _find(self, namespace)
     cdef _get(self, namespace, name=*, default=*)

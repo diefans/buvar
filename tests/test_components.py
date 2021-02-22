@@ -130,3 +130,13 @@ def test_components_push_pop(benchmark, components):
     benchmark(pushpop)
 
     assert c.find(str) == {None: "foo"}
+
+
+def test_components_add_name_any(components):
+    c = components.Components()
+
+    c.add("foo", name=("bar", 123))
+
+    foo = c.get(str, name=("bar", 123))
+
+    assert foo == "foo"

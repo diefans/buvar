@@ -11,6 +11,31 @@ def test_run(event_loop):
     assert e.value.args[1] == "foo_plugin"
 
 
+def test_run_task_factory(event_loop):
+    import asyncio
+    from buvar import plugin, context
+
+    async def prepare():
+        async def task():
+            async def _sub1():
+                context.add("foo")
+                await asyncio.sleep(0)
+                assert "foo" == context.get(str)
+
+            async def _sub2():
+                context.add("bar")
+                await asyncio.sleep(0)
+                assert "bar" == context.get(str)
+
+            await asyncio.gather(
+                asyncio.create_task(_sub1()), asyncio.create_task(_sub2())
+            )
+
+        yield task()
+
+    result = plugin.stage(prepare, loop=event_loop)
+
+
 def test_run_relative_out_of_packages(event_loop):
     from buvar import plugin
 

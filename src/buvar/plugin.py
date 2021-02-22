@@ -191,29 +191,29 @@ async def run(tasks, *, evt_cancel=None):
     if evt_cancel is None:
         evt_cancel = context.add(Cancel())
 
-    # we elevate context stack for tasks
+    # we automatically elevate context stack for tasks
     factory = context.set_task_factory()
     try:
         fut_tasks = asyncio.gather(*map(asyncio.create_task, tasks))
+
+        # stop staging if we finish in any way
+        fut_tasks.add_done_callback(lambda _: evt_cancel.set())
+
+        # wait for exit
+        await evt_cancel.wait()
+
+        if not fut_tasks.done():
+            # we were explicitelly stopped by cancel event
+            fut_tasks.cancel()
+            try:
+                await fut_tasks
+            except asyncio.CancelledError:
+                # silence our shutdown
+                pass
+        else:
+            return fut_tasks.result()
     finally:
         factory.reset()
-
-    # stop staging if we finish in any way
-    fut_tasks.add_done_callback(lambda _: evt_cancel.set())
-
-    # wait for exit
-    await evt_cancel.wait()
-
-    if not fut_tasks.done():
-        # we were explicitelly stopped by cancel event
-        fut_tasks.cancel()
-        try:
-            await fut_tasks
-        except asyncio.CancelledError:
-            # silence our shutdown
-            pass
-    else:
-        return fut_tasks.result()
 
 
 def collect_plugin_args(plugin):

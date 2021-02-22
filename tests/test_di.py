@@ -245,3 +245,30 @@ async def test_adapter_string_return(adapters):
 
     foo = await adapters.nject(Foo)
     assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
+async def test_nject_deep_dependency_by_arg(adapters):
+    class Foo:
+        ...
+
+    class Bar:
+        def __init__(self, foo):
+            self.foo = foo
+
+        @classmethod
+        def adapt_foo(cls, foo: Foo) -> "Bar":
+            return cls(foo=foo)
+
+    class Baz:
+        def __init__(self, bar):
+            self.bar = bar
+
+        @classmethod
+        def adapt_bar(cls, bar: Bar) -> "Baz":
+            return cls(bar=bar)
+
+    adapters.register(Bar.adapt_foo, Baz.adapt_bar)
+
+    baz = await adapters.nject(Baz, foo=Foo())
+    assert isinstance(baz, Baz)

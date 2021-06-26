@@ -208,16 +208,12 @@ Just `structlog`_ boilerplate.
    log_config.setup()
 
 
-.. _Pyramid: https://github.com/Pylons/pyramid
-.. _structlog: https://www.structlog.org/en/stable/
-.. _attrs: https://www.attrs.org/en/stable/
-
-
 forked process and shared sockets
 ---------------------------------
 
 You may fork your process and bind and share sockets, to leverage available
 CPUs e.g. for serving an aiohttp microservice.
+
 
 .. code-block:: python
 
@@ -240,3 +236,10 @@ CPUs e.g. for serving an aiohttp microservice.
     context.add(AioHttpConfig(host="0.0.0.0", port=5678))
 
     fork.stage(prepare_aiohttp, forks=0, sockets=["tcp://:5678"])
+
+
+
+.. _Pyramid: https://github.com/Pylons/pyramid
+.. _structlog: https://www.structlog.org/en/stable/
+.. _attrs: https://www.attrs.org/en/stable/
+

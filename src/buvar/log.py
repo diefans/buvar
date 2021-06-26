@@ -1,7 +1,7 @@
 import functools
 import logging
 import logging.config
-import os
+from os import getpid
 import sys
 import typing
 
@@ -51,7 +51,6 @@ LOGGING_LEVEL_NAMES = list(
     )
 )
 DEFAULT_LOGGING_LEVEL = logging.getLevelName(logging.WARNING)
-PID = os.getpid()
 timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
 
 
@@ -59,7 +58,7 @@ timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
 class LogConfig:
     tty: bool = sys.stdout.isatty()
     level: typing.Union[int, str] = logging.DEBUG
-    user_config: typing.Dict = None
+    user_config: typing.Optional[typing.Dict] = None
     capture_warnings: bool = True
     redirect_print: bool = False
     json_renderer: JSONRenderer = JSONRenderer(
@@ -105,8 +104,11 @@ class LogConfig:
         return pre_chain
 
     def setup(self):
-        if isinstance(self.level, str):
-            level = logging.getLevelName(self.level.upper())
+        level = (
+            logging.getLevelName(self.level.upper())
+            if isinstance(self.level, str)
+            else self.level
+        )
 
         renderer = structlog.dev.ConsoleRenderer() if self.tty else self.json_renderer
         config = {
@@ -192,7 +194,7 @@ class StdioToLog:
 
 
 def add_os_pid(logger, method_name, event_dict):  # noqa
-    event_dict["pid"] = PID
+    event_dict["pid"] = getpid()
     return event_dict
 
 

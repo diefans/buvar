@@ -32,7 +32,7 @@ import inspect
 import itertools
 import sys
 import types
-import typing
+import typing as t
 
 import structlog
 
@@ -168,6 +168,7 @@ class Stage:
 
         3. teardown
         """
+
         try:
             # stage 1: bootstrap plugins
             self.load(*plugins)
@@ -217,7 +218,7 @@ async def run(tasks, *, evt_cancel=None):
 
 
 def collect_plugin_args(plugin):
-    hints = typing.get_type_hints(plugin)
+    hints = t.get_type_hints(plugin)
     args = {name: context.get(cls) for name, cls in hints.items()}
     return args
 
@@ -225,9 +226,9 @@ def collect_plugin_args(plugin):
 def resolve_plugin_func(
     plugin,
     *,
-    function_name=PLUGIN_FUNCTION_NAME,
-    caller: typing.Union[types.FrameType, int] = 0,
-):
+    function_name: str = PLUGIN_FUNCTION_NAME,
+    caller: t.Union[types.FrameType, int] = 0,
+) -> t.Callable:
     plugin = util.resolve_dotted_name(
         plugin, caller=(caller + 1) if isinstance(caller, int) else caller
     )

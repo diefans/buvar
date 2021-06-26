@@ -3,7 +3,7 @@ import importlib
 import inspect
 import sys
 import types
-import typing
+import typing as t
 
 
 def methdispatch(func):
@@ -55,7 +55,9 @@ def merge_dict(*sources, dest=None):
     return dest
 
 
-def resolve_dotted_name(name, *, caller: typing.Union[types.FrameType, int] = 0):
+def resolve_dotted_name(
+    name: str, *, caller: t.Union[types.FrameType, int] = 0
+) -> t.Union[types.ModuleType, t.Callable]:
     """Use pkg_resources style dotted name to resolve a name."""
     # skip resolving for module and coroutine
     if inspect.ismodule(name) or inspect.isroutine(name):
@@ -88,5 +90,5 @@ def resolve_dotted_name(name, *, caller: typing.Union[types.FrameType, int] = 0)
     return resolved
 
 
-def fqdn(obj):
+def fqdn(obj) -> str:
     return f"{obj.__module__}.{obj.__qualname__}"

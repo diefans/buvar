@@ -21,6 +21,8 @@ a plugin mechanic
 
 - structlog boilerplate for json/tty logging
 
+- fork the process and share bound sockets
+
 
 You bootstrap like following:
 
@@ -209,3 +211,32 @@ Just `structlog`_ boilerplate.
 .. _Pyramid: https://github.com/Pylons/pyramid
 .. _structlog: https://www.structlog.org/en/stable/
 .. _attrs: https://www.attrs.org/en/stable/
+
+
+forked process and shared sockets
+---------------------------------
+
+You may fork your process and bind and share sockets, to leverage available
+CPUs e.g. for serving an aiohttp microservice.
+
+.. code-block:: python
+
+    import aiohttp.web
+    from buvar import fork, plugin, di, context
+    from buvar_aiohttp import AioHttpConfig
+
+
+    async def hello(request):
+        return aiohttp.web.Response(body=b"Hello, world")
+
+
+    async def prepare_aiohttp(load: plugin.Loader):
+        await load("buvar_aiohttp")
+
+        app = await di.nject(aiohttp.web.Application)
+        app.router.add_route("GET", "/", hello)
+
+
+    context.add(AioHttpConfig(host="0.0.0.0", port=5678))
+
+    fork.stage(prepare_aiohttp, forks=0, sockets=["tcp://:5678"])

@@ -6,7 +6,6 @@ import functools
 
 from . import components
 
-
 buvar_context: contextvars.ContextVar[components.Components] = contextvars.ContextVar(
     __name__
 )

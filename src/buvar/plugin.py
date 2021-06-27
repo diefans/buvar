@@ -33,6 +33,7 @@ import itertools
 import sys
 import types
 import typing as t
+import signal
 
 import structlog
 
@@ -104,6 +105,56 @@ class Loader:
                 self._tasks[plugin].extend(callables)
 
 
+class Signals:
+    handlers = (
+        (signal.SIGINT, "handle_int"),
+        (signal.SIGTERM, "handle_term"),
+        (signal.SIGHUP, "handle_hup"),
+        (signal.SIGQUIT, "handle_quit"),
+        (signal.SIGABRT, "handle_abort"),
+        (signal.SIGWINCH, "handle_winch"),
+        (signal.SIGUSR1, "handle_usr1"),
+        (signal.SIGUSR2, "handle_usr1"),
+    )
+
+    def __init__(self, stage):
+        self.stage = stage
+        self.add_signal_handlers()
+
+    def add_signal_handlers(self):
+        loop = self.stage.loop
+        for signum, name in self.handlers:
+            impl = getattr(self, name, None)
+            if callable(impl):
+                loop.add_signal_handler(signum, impl)
+
+    # we really leave it open to the user how to handle signals
+    # at least SIGINT makes sense
+    def handle_int(self):
+        self.stage.cancel.set()
+
+    # def handle_term(self):
+    #     ...
+
+    # def handle_hup(self):
+    #     ...
+
+    # def handle_quit(self):
+    #     ...
+
+    # def handle_abort(self):
+    #     ...
+
+    # def handle_winch(self):
+    #     ...
+
+    # def handle_usr1(self):
+    #     ...
+
+    # def handle_usr2(self):
+    #     ...
+
+
 class Stage:
     """Stage manages the context stack while running each phase of the machinery.
 
@@ -118,7 +169,7 @@ class Stage:
     4. the shared plugin preparation context
     """
 
-    def __init__(self, components=None, loop=None):
+    def __init__(self, components=None, loop=None, signals: t.Type[Signals] = None):
         self.loop = loop or asyncio.get_event_loop()
         self.context = (
             context.current_context()
@@ -129,6 +180,7 @@ class Stage:
         self.cancel = self.context.add(Cancel(loop=self.loop))
         self.teardown = self.context.add(Teardown())
         self.loader = self.context.add(Loader())
+        self.signals = self.context.add((signals or Signals)(self))
 
         self.context = self.context.push()
 
@@ -180,11 +232,11 @@ class Stage:
             self.run_teardown()
 
 
-def stage(*plugins, components=None, loop=None):
+def stage(*plugins, components=None, loop=None, signals: t.Type[Signals] = None):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    stage = Stage(components=components, loop=loop)
+    stage = Stage(components=components, loop=loop, signals=signals)
     return stage.run(*plugins)
 
 

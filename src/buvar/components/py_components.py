@@ -11,9 +11,12 @@ nice to have:
 - adaption resp. dependency injection of components
 """
 import itertools
-
+import typing as t
 
 missing = object()
+
+
+T = t.TypeVar("T")
 
 
 class ComponentLookupError(Exception):
@@ -71,7 +74,7 @@ class Components:
                 pass
         return merged
 
-    def get(self, namespace, *, name=None, default=missing):
+    def get(self, namespace: t.Type[T], *, name=None, default=missing) -> T:
         for namespaces in self.stack:
             try:
                 item = namespaces[namespace][name]

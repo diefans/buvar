@@ -5,12 +5,14 @@ import queue
 import signal
 import socket
 import typing as t
+import structlog
 
 import uritools
 
 from buvar import plugin
 from buvar.components import Components
 
+sl = structlog.get_logger()
 URI = uritools.SplitResult
 
 SocketArgs = t.Optional[t.Tuple[t.Any, ...]]
@@ -87,13 +89,15 @@ class Sockets(dict):
 
     @contextlib.contextmanager
     def bind(self):
+        pid = os.getpid()
         try:
             for s in self.values():
                 s.bind()
             yield self
         finally:
-            for s in self.values():
-                s.close()
+            if pid == os.getpid():
+                for s in self.values():
+                    s.close()
 
 
 class Fork:
@@ -116,28 +120,36 @@ class Fork:
         forks = len(os.sched_getaffinity(0)) if not self.number else self.number
 
         if forks == 1:
+            sl.debug("Skip forking", forks=forks, parent=os.getpid())
             return func(*args, **kv)
 
+        sl.debug("Forking", forks=forks, parent=os.getpid())
         for i in range(forks):
             child = os.fork()
             if child:
+                sl.debug("Child", child=child)
                 self.children.add(child)
             else:
+                # override for child
                 self.pid = os.getpid()
                 self.ppid = os.getppid()
                 self.is_child = True
+                sl.debug("Run", child=self.pid, parent=self.ppid, func=func)
                 result = func(*args, **kv)
+                sl.debug("Stopped", child=self.pid, parent=self.ppid, func=func)
                 self.queue.put(result)
+                # stop child from iterating the rest
+                return
 
-        if self.children:
-            self.wait_for_children()
-            result = []
-            while True:
-                try:
-                    result.append(self.queue.get(False))
-                except queue.Empty:
-                    break
-            return result
+        sl.debug("Waiting for children to exit", children=self.children)
+        self.wait_for_children()
+        result = []
+        while True:
+            try:
+                result.append(self.queue.get(False))
+            except queue.Empty:
+                break
+        return result
 
     def _signal_children(self, signum, frame):
         for child in self.children:
@@ -145,9 +157,17 @@ class Fork:
 
     def wait_for_children(self):
         pgid = os.getpgid(self.pid)
-        signal.signal(signal.SIGINT, self._signal_children)
-        signal.signal(signal.SIGHUP, self._signal_children)
-        signal.signal(signal.SIGTERM, self._signal_children)
+        for signum in (
+            signal.SIGINT,
+            signal.SIGTERM,
+            signal.SIGHUP,
+            signal.SIGQUIT,
+            signal.SIGABRT,
+            signal.SIGWINCH,
+            signal.SIGUSR1,
+            signal.SIGUSR2,
+        ):
+            signal.signal(signum, self._signal_children)
         os.waitid(os.P_PGID, pgid, os.WEXITED)
 
 
@@ -167,4 +187,5 @@ def stage(
         for name, s in s.items():
             components.add(s, name=name)
 
-        return f.run(plugin.stage, *plugins, components=components, loop=loop)
+        result = f.run(plugin.stage, *plugins, components=components, loop=loop)
+        return result

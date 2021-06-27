@@ -99,6 +99,20 @@ async def test_nject_class(adapters):
 
 
 @pytest.mark.asyncio
+async def test_nject_class_base(adapters):
+    class Foo:
+        ...
+
+    class Bar(Foo):
+        ...
+
+    adapters.register(Bar)
+
+    foo = await adapters.nject(Foo)
+    assert isinstance(foo, Foo)
+
+
+@pytest.mark.asyncio
 async def test_nject_func(adapters):
     class Foo:
         ...

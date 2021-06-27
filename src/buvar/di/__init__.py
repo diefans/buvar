@@ -32,9 +32,8 @@ try:
 except ImportError:
     from .py_di import AdaptersImpl
 
-
-import contextvars
 import collections
+import contextvars
 import inspect
 import itertools
 import sys
@@ -46,7 +45,6 @@ import typing_inspect
 from buvar import util
 
 from .exc import ResolveError, missing
-
 
 PY_39 = sys.version_info >= (3, 9)
 
@@ -94,7 +92,9 @@ class Adapter(metaclass=SignatureMeta):
         if self.lookup not in adapters.lookups:
             adapters["index"] = collections.defaultdict(list)
             adapters.lookups[self.lookup] = True
-        adapters["index"][self.target].insert(0, self)
+        # register for all base classes except object
+        for base in inspect.getmro(self.target)[:-1]:
+            adapters["index"][base].insert(0, self)
 
     @staticmethod
     def lookup(adapters, target):

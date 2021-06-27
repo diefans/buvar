@@ -214,6 +214,8 @@ forked process and shared sockets
 You may fork your process and bind and share sockets, to leverage available
 CPUs e.g. for serving an aiohttp microservice.
 
+Signals like INT, TERM, HUP are forwarded to the child processes.
+
 
 .. code-block:: python
 

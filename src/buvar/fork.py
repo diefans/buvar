@@ -2,14 +2,14 @@ import abc
 import contextlib
 import os
 import queue
+import signal
 import socket
 import typing as t
 
-import attr
 import uritools
 
-from buvar.components import Components
 from buvar import plugin
+from buvar.components import Components
 
 URI = uritools.SplitResult
 
@@ -96,9 +96,19 @@ class Sockets(dict):
                 s.close()
 
 
-@attr.s(auto_attribs=True)
 class Fork:
     number: int = 0
+    ppid: int
+    pid: int
+    is_child: bool
+
+    def __init__(self, number: int):
+        self.number = number
+        self.children = set()
+        self.queue = queue.Queue()
+        self.pid = os.getpid()
+        self.ppid = os.getppid()
+        self.is_child = False
 
     def run(
         self, func: t.Callable, *args: t.Any, **kv: t.Any
@@ -108,27 +118,37 @@ class Fork:
         if forks == 1:
             return func(*args, **kv)
 
-        q = queue.Queue()
-        children = set()
         for i in range(forks):
             child = os.fork()
             if child:
-                children.add(child)
+                self.children.add(child)
             else:
+                self.pid = os.getpid()
+                self.ppid = os.getppid()
+                self.is_child = True
                 result = func(*args, **kv)
-                q.put(result)
+                self.queue.put(result)
 
-        if children:
-            for child in children:
-                os.waitpid(child, 0)
-
+        if self.children:
+            self.wait_for_children()
             result = []
             while True:
                 try:
-                    result.append(q.get(False))
+                    result.append(self.queue.get(False))
                 except queue.Empty:
                     break
             return result
+
+    def _signal_children(self, signum, frame):
+        for child in self.children:
+            os.kill(child, signum)
+
+    def wait_for_children(self):
+        pgid = os.getpgid(self.pid)
+        signal.signal(signal.SIGINT, self._signal_children)
+        signal.signal(signal.SIGHUP, self._signal_children)
+        signal.signal(signal.SIGTERM, self._signal_children)
+        os.waitid(os.P_PGID, pgid, os.WEXITED)
 
 
 def stage(

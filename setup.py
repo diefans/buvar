@@ -58,7 +58,7 @@ entry_points = {"pytest11": ["buvar = buvar.testing"]}
 
 setup_kwargs = {
     "name": "buvar",
-    "version": "0.42.3",
+    "version": "0.42.4",
     "description": "Asyncio plugins, components, dependency injection and configs",
     "long_description": description,
     "long_description_content_type": "text/x-rst",

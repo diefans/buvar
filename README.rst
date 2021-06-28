@@ -23,6 +23,8 @@ a plugin mechanic
 
 - fork the process and share bound sockets
 
+- pytest fixtures to reduce testing boilerplate
+
 
 You bootstrap like following:
 
@@ -113,7 +115,7 @@ Dependencies are looked up in components or may be provided via kwargs.
 a config source
 ---------------
 
-`buvar.config.ConfigSource` is just a `dict`, which merges
+:code:`buvar.config.ConfigSource` is just a :code:`dict`, which merges
 arbitrary dicts into one. It serves as the single source of truth for
 application variability.
 
@@ -164,8 +166,8 @@ You can load a section of config values into your custom `attrs`_ class instance
 
 
 There is a shortcut to the above approach provided by
-`buvar.config.Config`, which requires to be subclassed from it with a
-distinct `section` attribute. If one adds a `buvar.config.ConfigSource`
+:code:`buvar.config.Config`, which requires to be subclassed from it with a
+distinct :code:`section` attribute. If one adds a :code:`buvar.config.ConfigSource`
 component, he will receive the mapped config in one call.
 
 .. code-block:: python
@@ -239,6 +241,63 @@ Signals like INT, TERM, HUP are forwarded to the child processes.
 
     fork.stage(prepare_aiohttp, forks=0, sockets=["tcp://:5678"])
 
+
+pytest
+------
+
+There are a couple of pytest fixtures provided to get your context into a
+reasonable state:
+
+:code:`buvar_config_source`
+    A :code:`dict` with arbitrary application settings.
+
+:code:`buvar_context`
+    The basic context staging operates on.
+
+:code:`buvar_stage`
+    The actual stage processing all plugins.
+
+:code:`buvar_load`
+    The loader to add plugins to the stage.
+
+:code:`buvar_plugin_context`
+    The context all plugins share, when they are prepared.
+
+
+Following markers may be applied to a test
+
+:code:`buvar_plugins(plugin, ...)`
+    Load all plugins into plugin context.
+
+
+.. code-block:: python
+
+    import pytest
+
+
+    async def prepare():
+        from buvar import context
+
+        context.add("foobar")
+
+
+    @pytest.mark.asyncio
+    @pytest.mark.buvar_plugins("tests.test_testing")
+    async def test_wrapped_stage_context():
+        from buvar import context, plugin
+
+        assert context.get(str) == "foobar"
+        assert context.get(plugin.Cancel)
+
+
+    @pytest.mark.asyncio
+    @pytest.mark.buvar_plugins()
+    async def test_wrapped_stage_context_load(buvar_load):
+        from buvar import context, plugin
+
+        await buvar_load(prepare)
+        assert context.get(str) == "foobar"
+        assert context.get(plugin.Cancel)
 
 
 .. _Pyramid: https://github.com/Pylons/pyramid

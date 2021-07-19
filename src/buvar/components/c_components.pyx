@@ -7,12 +7,9 @@ stacked::
       inferior ones
 """
 import itertools
+from . import ComponentLookupError
 
 missing = object()
-
-
-cdef class ComponentLookupError(Exception):
-    pass
 
 
 cdef class Components:

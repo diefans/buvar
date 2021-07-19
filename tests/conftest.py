@@ -15,7 +15,13 @@ def configure_structlog(log_output):
     structlog.configure(processors=[log_output])
 
 
-@pytest.fixture(params=["cython", "python"], autouse=True)
+@pytest.fixture(
+    params=[
+        "cython",
+        "python",
+    ],
+    autouse=True,
+)
 def implementation(request, mocker):
     import mock
 

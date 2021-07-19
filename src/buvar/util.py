@@ -24,12 +24,12 @@ class adict(dict):
         self.__dict__ = self
 
 
-class reify:
+class cached:
     def __init__(self, wrapped):
         self.wrapped = wrapped
         functools.update_wrapper(self, wrapped)
 
-    def __get__(self, inst, objtype=None):
+    def __get__(self, inst, cls=None):
         if inst is None:
             return self
         val = self.wrapped(inst)

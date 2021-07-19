@@ -42,18 +42,21 @@ tests_python_39:
 
 wheels_python39_x86_64:
   <<: *wheels
+  needs: [tests_python_39]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp39-cp39
 
 wheels_python38_x86_64:
   <<: *wheels
+  needs: [tests_python_38]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp38-cp38
 
 wheels_python37_x86_64:
   <<: *wheels
+  needs: [tests_python_37]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp37-cp37m

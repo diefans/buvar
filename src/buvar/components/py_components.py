@@ -12,15 +12,12 @@ nice to have:
 """
 import itertools
 import typing as t
+from buvar.components import ComponentLookupError
 
 missing = object()
 
 
 T = t.TypeVar("T")
-
-
-class ComponentLookupError(Exception):
-    pass
 
 
 class Components:

@@ -1,7 +1,16 @@
 stages:
   - tests
-  - wheels
+  - build
+  - bump
+  - release
 
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
 
 .tests: &tests
   stage: tests
@@ -26,9 +35,8 @@ tests_python_39:
   <<: *tests
   image: diefans/python3.9-alpine-cython:0.2.0
 
-
 .wheels: &wheels
-  stage: wheels
+  stage: build
   image: quay.io/pypa/manylinux2014_x86_64
   script:
     #- mkdir ./dist
@@ -42,24 +50,71 @@ tests_python_39:
 
 wheels_python39_x86_64:
   <<: *wheels
+  needs: [tests_python_39]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp39-cp39
 
 wheels_python38_x86_64:
   <<: *wheels
+  needs: [tests_python_38]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp38-cp38
 
 wheels_python37_x86_64:
   <<: *wheels
+  needs: [tests_python_37]
   variables:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp37-cp37m
 
-#wheels_python36_x86_64:
-#  <<: *wheels
-#  variables:
-#    PLAT: manylinux2010_x86_64
-#    PYTHON_VERSIONS: cp36-cp36m
+sdist:
+  image: diefans/python3.9-alpine-cython:0.2.0
+  stage: build
+  needs:
+    - tests_python_37
+    - tests_python_38
+    - tests_python_39
+  artifacts:
+    when: on_success
+    paths:
+      - dist
+    expire_in: 30 mins
+  script:
+    - python setup.py sdist
+
+
+merge_request:
+  stage: bump
+  only:
+    - master
+  script:
+      # setup ssh
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+    - eval $(ssh-agent -s)
+    - echo "${SSH_PRIVATE_KEY}" | tr -d '\r' | ssh-add -
+
+      # fix url
+    - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r s,.+@([^/]+)/,git@\\1:,)
+    - git remote set-url --push origin ${REPOSITORY_URL}
+
+    - pip install commitizen
+    - cz bump
+
+      # merge into staging
+    - git merge origin/master
+    - git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
+
+
+release:
+  stage: release
+  only:
+    - tags
+  dependencies:
+    - wheels_python37_x86_64
+    - wheels_python38_x86_64
+    - wheels_python39_x86_64
+  script:
+    - pip install twine

@@ -156,7 +156,7 @@ class Fork:
             os.kill(child, signum)
 
     def wait_for_children(self):
-        pgid = os.getpgid(self.pid)
+        # forward signal to children
         for signum in (
             signal.SIGINT,
             signal.SIGTERM,
@@ -168,6 +168,8 @@ class Fork:
             signal.SIGUSR2,
         ):
             signal.signal(signum, self._signal_children)
+        # just wait for them
+        pgid = os.getpgid(self.pid)
         os.waitid(os.P_PGID, pgid, os.WEXITED)
 
 

@@ -48,7 +48,12 @@ extras_require = {
         "pytest-randomly>=3.1",
         "pytest-doctestplus>=0.5",
         "pytest-anything",
+    ],
+    "dev": [
+        "commitizen",
+        "pre-commit",
         "pdbpp",
+        "ipython",
     ],
 }
 extras_require["all"] = list(itertools.chain(extras_require.values()))

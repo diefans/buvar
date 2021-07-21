@@ -9,8 +9,6 @@ import structlog
 
 from buvar import context, plugin, util
 
-sl = structlog.get_logger()
-
 
 class Jobs(set):
     def add(self, job, *, sync=None):
@@ -21,6 +19,7 @@ class Jobs(set):
 
         super().add(fut_job)
         fut_job.add_done_callback(self.remove)
+        sl = structlog.get_logger()
         sl.info("Added background job", job=job, module=module_name, count=len(self))
 
         return fut_job
@@ -41,6 +40,7 @@ class Jobs(set):
         try:
             _ = fut.result()
         except Exception as ex:
+            sl = structlog.get_logger()
             sl.error("Background job failed", exc_info=ex)
         finally:
             super().remove(fut)

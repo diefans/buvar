@@ -10,6 +10,7 @@ def adapters():
 
 def test_adapters_register_generic_factory(adapters):
     import typing
+    from buvar import di
 
     FooType = typing.TypeVar("FooType", bound="Foo")
 
@@ -19,31 +20,38 @@ def test_adapters_register_generic_factory(adapters):
             return cls()
 
     adapters.register(Foo.generic_adapt)
-    assert [Foo.generic_adapt] == [
-        adapter.impl for adapter in adapters["generic_index"][Foo]
-    ]
+    assert (
+        next(iter(adapters[di.ClassmethodAdapter][Foo])).implementation
+        == Foo.generic_adapt
+    )
 
 
 def test_adapters_register_class(adapters):
+    from buvar import di
+
     class Bar:
         def __init__(self):
             ...
 
     adapters.register(Bar)
-    assert [Bar] == [adapter.impl for adapter in adapters["index"][Bar]]
+    assert next(iter(adapters[di.GenericAdapter][Bar])).implementation == Bar
 
 
 def test_adapters_register_classmethod(adapters):
+    from buvar import di
+
     class Bar:
         @classmethod
         def adapt(cls) -> "Bar":
             return cls()
 
     adapters.register(Bar.adapt)
-    assert [Bar.adapt] == [adapter.impl for adapter in adapters["index"][Bar]]
+    assert next(iter(adapters[di.ClassmethodAdapter][Bar])).implementation == Bar.adapt
 
 
 def test_adapters_register_func(adapters):
+    from buvar import di
+
     class Bar:
         ...
 
@@ -51,12 +59,13 @@ def test_adapters_register_func(adapters):
         return Bar()
 
     adapters.register(foo_adapter)
-    assert [foo_adapter] == [adapter.impl for adapter in adapters["index"][Bar]]
+    assert next(iter(adapters[di.GenericAdapter][Bar])).implementation == foo_adapter
 
 
 @pytest.mark.asyncio
 async def test_nject_generic_factory(adapters):
     import typing
+    from buvar import di
 
     FooType = typing.TypeVar("FooType", bound="Foo")
 

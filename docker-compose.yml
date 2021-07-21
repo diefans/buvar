@@ -34,9 +34,9 @@ services:
     environment:
       PLATFORM: manylinux2014_x86_64
       PYTHON_VERSIONS: |
-        cp37-cp37m
-        cp38-cp38
         cp39-cp39
+        cp38-cp38
+        cp37-cp37m
     volumes:
       - "./:/io"
       #- "wheelhouse:/io/wheelhouse"

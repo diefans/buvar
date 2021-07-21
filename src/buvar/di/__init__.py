@@ -26,25 +26,26 @@ Register a class, function or method to adapt arguments into something else.
 >>> assert isinstance(foo, Foo)
 
 """
-try:
-    # gains over 100% speed up
-    from .c_di import AdaptersImpl
-except ImportError:
-    from .py_di import AdaptersImpl
-
-import collections
-import contextvars
+import abc
+import contextvars as cv
+import functools as ft
 import inspect
-import itertools
+import itertools as it
 import sys
-import types
-import typing
+import typing as t
 
-import typing_inspect
+import typing_inspect as ti
 
 from buvar import util
-
 from .exc import ResolveError, missing
+
+try:
+    # gains over 100% speed up
+    from . import c_di as _impl
+
+except ImportError:
+    from . import py_di as _impl
+
 
 PY_39 = sys.version_info >= (3, 9)
 
@@ -53,200 +54,263 @@ class AdapterError(Exception):
     pass
 
 
-class SignatureMeta(type):
-    classes = {}
-
-    def __new__(mcs, name, bases, dct):
-        cls = type.__new__(mcs, name, bases, dct)
-        mcs.classes[name] = cls
-        return cls
-
-    def __call__(cls, impl, *, frame=None, **kwargs):
-        # try classes from latest to oldest
-        for adapter_cls in reversed(list(cls.classes.values())):
-            args = adapter_cls.test_impl(impl, frame=frame)
-            if args:
-                inst = type.__call__(adapter_cls, impl, **args)
-                return inst
-        raise TypeError("No adapter implementation found", impl)
-
-
-class Adapter(metaclass=SignatureMeta):
-    def __init__(self, impl, *, spec, hints):
-        self.impl = impl
-        self.spec = spec
-        self.hints = hints
-        self.args = self._create_args()
-
-    @classmethod
-    def test_impl(cls, impl, *, frame):
-        # TODO test for sane hints
-        if callable(impl):
-            return get_annotations(impl, frame=frame)
-
-    @util.reify
-    def target(self):
-        return self.hints["return"]
-
-    def register(self, adapters):
-        if self.lookup not in adapters.lookups:
-            adapters["index"] = collections.defaultdict(list)
-            adapters.lookups[self.lookup] = True
-        # register for all base classes except object
-        for base in inspect.getmro(self.target)[:-1]:
-            adapters["index"][base].insert(0, self)
-
-    @staticmethod
-    def lookup(adapters, target):
-        if target in adapters["index"]:
-            yield from adapters["index"][target]
-
-    def _filter_arg_name(self, name):
-        return False
-
-    def _create_args(self):
-        hints = self.hints
-        defaults = collect_defaults(self.spec)
-        args = [
-            (name, extract_optional_type(hints[name]), defaults.get(name, missing))
-            for name in itertools.chain(self.spec.args, self.spec.kwonlyargs)
-            if not self._filter_arg_name(name)
-        ]
-
-        return args
-
-    async def create(self, target, *args, **kwargs):
-        impl = self.impl
-        call = impl(*args, **kwargs)
-        return await call if inspect.iscoroutinefunction(impl) else call
-
-
-class ClassAdapter(Adapter):
-    @util.reify
-    def target(self):
-        return self.impl
-
-    @classmethod
-    def test_impl(cls, impl, *, frame):
-        if isinstance(impl, type):
-            return super().test_impl(impl.__init__, frame=frame)
-
-    def _filter_arg_name(self, name):
-        return name is self.spec.args[0]
-
-
-class ClassmethodAdapter(Adapter):
-    @classmethod
-    def test_impl(cls, impl, *, frame):
-        if isinstance(impl, types.MethodType) and isinstance(impl.__self__, type):
-            return super().test_impl(impl.__func__, frame=frame)
-
-    def _filter_arg_name(self, name):
-        return name is self.spec.args[0]
-
-
-class GenericFactoryAdapter(ClassmethodAdapter):
-    def __init__(self, impl, *, spec, hints, cls_type, bound):
-        super().__init__(impl, spec=spec, hints=hints)
-        self.cls_type = cls_type
-        self.bound = bound
-
-    @classmethod
-    def test_impl(cls, impl, *, frame):
-        args = super().test_impl(impl, frame=frame)
-        if not args:
-            return
-        cls_attr = args.spec.args[0]
-        generic_type = args.hints.get(cls_attr)
-        # https://mypy.readthedocs.io/en/latest/generics.html#generic-methods-and-generic-self
-        if (
-            generic_type
-            and generic_type.__origin__ is type
-            and typing_inspect.is_generic_type(generic_type)
-        ):
-            (cls_type,) = typing_inspect.get_args(generic_type)
-            target = args.hints["return"]
-
-            # assure bound type equals classmethod owner
-            if cls_type is target:
-                bound = typing_inspect.get_bound(cls_type)
-                if bound:
-                    # we use frame locals to enable references within function scope
-                    if PY_39:
-                        bound = bound._evaluate(
-                            impl.__func__.__globals__, frame.f_locals, set()
-                        )
-                    else:
-                        bound = bound._evaluate(
-                            impl.__func__.__globals__, frame.f_locals
-                        )
-                    if bound is impl.__self__:
-                        args.cls_type = cls_type
-                        args.bound = bound
-                        return args
-
-    async def create(self, target, *args, **kwargs):
-        impl = self.impl.__func__
-        call = impl(target, *args, **kwargs)
-        return await call if inspect.iscoroutinefunction(impl) else call
-
-    def register(self, adapters):
-        if self.lookup not in adapters.lookups:
-            adapters["generic_index"] = collections.defaultdict(list)
-            adapters.lookups[self.lookup] = True
-        adapters["generic_index"][self.bound].insert(0, self)
-
-    @staticmethod
-    def lookup(adapters, target):
-        # find generic adapters
-        for base in inspect.getmro(target):
-            if base in adapters["generic_index"]:
-                yield from adapters["generic_index"][base]
-
-
-class Adapters(dict, AdaptersImpl):
+class Adapters(dict, _impl.AdaptersImpl):
     def __init__(self):
         super().__init__()
-        self.lookups = {}
+        self.context = cv.copy_context()
 
-    def register(self, *impls, frame=None):
+    def __hash__(self):
+        # since we want to cache our lookup, we need have to be hashable
+        return object.__hash__(self)
+
+    def register(self, *implementations, frame=None):
         frame = frame or sys._getframe(1)
-        for impl in impls:
-            adapter = Adapter(impl, frame=frame)
+        for implementation in implementations:
+            adapter = Adapter(implementation, frame=frame)
             adapter.register(self)
+        self.lookup.cache_clear()
+
+    @ft.lru_cache(maxsize=None)
+    def lookup(self, tp):
+        errors = {}
+
+        def collect():
+            for adapter_cls in reversed(Adapter.classes):
+                try:
+                    yield from adapter_cls.lookup(self, tp)
+                except Exception as ex:
+                    errors[adapter_cls] = ex
+
+        return set(collect())
 
 
-def get_annotations(impl, *, frame=None):
-    args = util.adict()
-    args.hints = typing.get_type_hints(
-        impl, frame.f_globals if frame else None, frame.f_locals if frame else None
+class AdapterMeta(abc.ABCMeta):
+    classes = []
+
+    def __call__(cls, implementation, *, frame=None):
+        frame = frame or sys._getframe(1)
+        errors = {}
+        # polymorphic instantiation: trial and error from specific to generic
+        for adapter_cls in reversed(cls.classes):
+            try:
+                adapter = type.__call__(adapter_cls, implementation, frame=frame)
+                return adapter
+            except Exception as ex:
+                errors[adapter_cls] = ex
+        if errors:
+            raise AdapterError("All adaptations failed", errors)
+        raise AdapterError("No adapters")
+
+
+class Adapter(metaclass=AdapterMeta):
+    def __init__(self, implementation, **_):
+        self.implementation = implementation
+
+    def __init_subclass__(cls):
+        if not inspect.isabstract(cls):
+            cls.classes.append(cls)
+
+    @abc.abstractmethod
+    def register(self, registry: t.Dict):
+        """Register this adapter into the registry."""
+
+    @abc.abstractclassmethod
+    def lookup(cls, registry: t.Dict, tp) -> t.Iterator:
+        """Lookup an adapter based on its return type."""
+
+    if sys.version_info >= (3, 8):
+
+        async def create(self, target, *args, **kwargs):
+            call = self.implementation(*args, **kwargs)
+            return (
+                await call if inspect.iscoroutinefunction(self.implementation) else call
+            )
+
+    else:
+
+        async def create(self, target, *args, **kwargs):
+            call = self.implementation(*args, **kwargs)
+            if isinstance(self.implementation, ft.partial):
+                return (
+                    await call
+                    if inspect.iscoroutinefunction(self.implementation.func)
+                    else call
+                )
+            else:
+                return (
+                    await call
+                    if inspect.iscoroutinefunction(self.implementation)
+                    else call
+                )
+
+
+def evaluate(tp: t.Union[str, t.TypeVar, t.Type, t.ForwardRef], *, frame=None):
+    if isinstance(tp, str):
+        tp = t.ForwardRef(tp)
+
+    if ti.is_typevar(tp):
+        tp = ti.get_bound(tp)
+
+    # TODO python versions
+    return t._eval_type(
+        tp,
+        frame.f_globals if frame else None,
+        frame.f_locals if frame else None,
     )
-    args.spec = inspect.getfullargspec(impl)
-    return args
 
 
-def extract_optional_type(hint):
-    if typing_inspect.is_optional_type(hint):
-        none = type(None)
-        for h in hint.__args__:
-            if h is not none:
-                return h
-    return hint
+def evaluated_signature(func: t.Callable, frame=None):
+    """Adjust annotations."""
+    signature = inspect.Signature.from_callable(func)
+    signature = signature.replace(
+        parameters=[
+            p.replace(
+                annotation=evaluate(p.annotation, frame=frame),
+                default=p.default
+                # we change empty to missing for later convenience
+                if p.default is not inspect.Signature.empty else missing,
+            )
+            for p in signature.parameters.values()
+        ],
+        return_annotation=evaluate(signature.return_annotation, frame=frame),
+    )
+    return signature
 
 
-def collect_defaults(spec):
-    defaults = {
-        k: v
-        for k, v in itertools.chain(
-            zip(reversed(spec.args or []), reversed(spec.defaults or [])),
-            (spec.kwonlydefaults or {}).items(),
+class BaseMatrix:
+    def __call__(self, tp):
+        if inspect.isclass(tp):
+            return self.iter_mro(tp)
+        if ti.is_optional_type(tp):
+            return self.iter_optional(tp)
+        if ti.is_tuple_type(tp):
+            return self.iter_generic(tp)
+        if ti.is_union_type(tp):
+            return self.iter_generic(tp)
+        if ti.is_generic_type(tp):
+            return self.iter_generic(tp)
+
+    def iter_mro(self, tp):
+        mro = inspect.getmro(tp)
+        # skip object
+        yield from iter(mro[:-1])
+
+    def iter_optional(self, tp):
+        arg, *_ = ti.get_args(tp, evaluate=True)
+        for base in self(arg):
+            yield t.Optional[base]
+
+    def iter_generic(self, tp):
+        args = ti.get_args(tp, evaluate=True)
+        yield from (tp.copy_with(params) for params in it.product(*map(self, args)))
+
+
+base_matrix = BaseMatrix()
+
+
+class CallableAdapter(Adapter, inspect.Signature):
+    def __init__(self, implementation, *, frame=None):
+        if not callable(implementation):
+            raise AdapterError("Implementation not callable", implementation)
+        super().__init__(implementation)
+        self.frame = frame
+        signature = evaluated_signature(self.implementation, frame=frame)
+        inspect.Signature.__init__(
+            self,
+            list(signature.parameters.values()),
+            return_annotation=signature.return_annotation,
         )
-    }
-    return defaults
+
+    def ___repr__(self):
+        return f"<{self.__class__.__name__} {self.parameters}"
+
+    @util.cached
+    def return_type(self):
+        rt = self.return_annotation
+        if rt is not inspect.Signature.empty and rt is not None:
+            return rt
+        if inspect.isclass(self.implementation):
+            return self.implementation
+        raise AdapterError(
+            "Adapter implementation has no return type", self.implementation
+        )
+
+
+class GenericAdapter(CallableAdapter):
+    def __init__(self, implementation, *, frame=None):
+        super().__init__(implementation, frame=frame)
+
+    @classmethod
+    def registry(cls, registry: t.Dict):
+        registry = registry.setdefault(cls, {})
+        return registry
+
+    def register(self, registry: t.Dict):
+        registry = self.registry(registry)
+        for base in base_matrix(self.return_type):
+            registry.setdefault(base, set()).add(self)
+
+    @classmethod
+    def lookup(cls, registry: t.Dict, tp):
+        registry = cls.registry(registry)
+        adapters = registry.get(tp)
+        if adapters:
+            yield from adapters
+
+
+class MethodAdapter(GenericAdapter):
+    def __init__(self, implementation, *, frame=None):
+        super().__init__(implementation, frame=frame)
+        if not inspect.ismethod(implementation):
+            raise AdapterError("Implementation is not a method", implementation)
+
+
+class ClassmethodAdapter(MethodAdapter):
+    def __init__(self, implementation, *, frame=None):
+        super().__init__(implementation, frame=frame)
+        if not inspect.isclass(implementation.__self__):
+            raise AdapterError("Implementation is not a classmethod", implementation)
+        self.cls = implementation.__self__
+
+    @classmethod
+    def lookup(cls, registry: t.Dict, tp):
+        """
+        Foo <- Bar(Foo) <- Baz(Bar)
+          |
+          +-- adapt(cls) -> "Foo"
+
+        An implementation returning parent is registered.
+
+        We want to have an instance of `Bar` or `Baz`.
+        If we do not find an adapter directly, we try to find an adapter, which
+        returns a subclass of `Bar` or `Baz` and whose class is also this
+        subclass
+        """
+        yield from super().lookup(registry, tp)
+        local_registry = cls.registry(registry)
+        # try inheritance
+        for base in inspect.getmro(tp)[:-1]:
+            for adapter in local_registry.get(base, ()):
+                # found an adater which returns a base
+                if issubclass(base, adapter.cls):
+                    # found an adapter, whose class matches what he returns
+                    # we prebind our implementation
+                    bound_adapter = adapter.replace(
+                        # TODO XXX FIXME partial only works in >=3.8
+                        # create is not recognizing coroutine
+                        ft.partial(adapter.implementation.__func__, tp)
+                    )
+                    # cache
+                    local_registry.setdefault(tp, set()).add(bound_adapter)
+                    yield bound_adapter
+
+    def replace(self, implementation):
+        adapter = type(self)(implementation, frame=self.frame)
+        return adapter
 
 
 # our default adapters
-buvar_adapters = contextvars.ContextVar(__name__)
+buvar_adapters = cv.ContextVar(__name__)
 buvar_adapters.set(Adapters())
 
 

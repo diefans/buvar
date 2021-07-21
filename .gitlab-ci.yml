@@ -65,9 +65,8 @@ wheels_python37_x86_64:
 merge:
   stage: merge
   script:
-    - # merge master into staging branch
-      git checkout -B staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
-      git merge master
-      git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
+    - git checkout -B staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
+    - git merge master
+    - git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
   only:
     - merge_requests

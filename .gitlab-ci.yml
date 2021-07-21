@@ -1,6 +1,7 @@
 stages:
   - tests
   - wheels
+  - staging
   - merge
 
 
@@ -26,7 +27,6 @@ tests_python_38:
 tests_python_39:
   <<: *tests
   image: diefans/python3.9-alpine-cython:0.2.0
-
 
 .wheels: &wheels
   stage: wheels
@@ -62,11 +62,40 @@ wheels_python37_x86_64:
     PLATFORM: manylinux2014_x86_64
     PYTHON_VERSIONS: cp37-cp37m
 
-merge:
-  stage: merge
+merge_request:
+  stage: staging
+  needs: [tests_python_37, tests_python_38, tests_python_39]
   script:
+      # setup ssh
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+
+      # fix url
+    - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r s,.+@([^/]+)/,git@\\1:,)
+    - git remote set-url --push origin ${REPOSITORY_URL}
+
+      # merge into staging
     - git checkout -B staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
     - git merge origin/master
     - git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
   only:
     - merge_requests
+
+
+merge:
+  stage: merge
+  only:
+    - staging
+  needs: [merge_request]
+  script:
+      # setup ssh
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+
+      # fix url
+    - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r s,.+@([^/]+)/,git@\\1:,)
+    - git remote set-url --push origin ${REPOSITORY_URL}

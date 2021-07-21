@@ -1,8 +1,8 @@
 stages:
   - tests
   - build
-  - staging
-  - merge
+  - bump
+  - release
 
 
 workflow:

@@ -71,13 +71,6 @@ wheels_python37_x86_64:
 
 merge_request:
   stage: staging
-  needs:
-    - tests_python_37
-    - wheels_python_37
-    - tests_python_38
-    - wheels_python_38
-    - tests_python_39
-    - wheels_python_39
   script:
       # setup ssh
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -101,7 +94,6 @@ merge:
   stage: merge
   only:
     - staging
-  needs: [merge_request]
   script:
       # setup ssh
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh

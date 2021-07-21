@@ -66,7 +66,7 @@ merge:
   stage: merge
   script:
     - git checkout -B staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
-    - git merge master
+    - git merge origin/master
     - git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
   only:
     - merge_requests

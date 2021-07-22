@@ -86,16 +86,20 @@ sdist:
 
 
 bump:
+  image: python:3.8
   stage: bump
   only:
     - master
-  script:
+  before_script:
+    - apk add --no-cache py-pip
+    - pip install commitizen
       # setup ssh
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
     - eval $(ssh-agent -s)
     - echo "${SSH_PRIVATE_KEY}" | tr -d '\r' | ssh-add -
 
+  script:
       # fix url
     - echo $CI_REPOSITORY_URL
     - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r "s,.+@([^/]+)/,git@\\1:,")
@@ -103,13 +107,10 @@ bump:
 
     - pip install commitizen
     - cz bump
-
-      # merge into staging
-    - git merge origin/master
-    - git push -u origin staging/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
-
+    - git push
 
 release:
+  image: python:3.8
   stage: release
   only:
     - tags
@@ -117,5 +118,8 @@ release:
     - wheels_python37_x86_64
     - wheels_python38_x86_64
     - wheels_python39_x86_64
+  before_script:
+    - apk add --no-cache py-pip
   script:
     - pip install twine
+    - ls -la ./dist

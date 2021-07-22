@@ -85,7 +85,7 @@ sdist:
     - python setup.py sdist
 
 
-merge_request:
+bump:
   stage: bump
   only:
     - master

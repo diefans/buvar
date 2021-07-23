@@ -89,7 +89,8 @@ bump:
   image: python:3.8
   stage: bump
   only:
-    - master
+    refs:
+      - master
   before_script:
     - pip install commitizen
       # setup ssh

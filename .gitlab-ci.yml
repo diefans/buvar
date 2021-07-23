@@ -100,14 +100,15 @@ bump:
     - echo "${SSH_PRIVATE_KEY}" | tr -d '\r' | ssh-add -
 
   script:
-      # fix url
-    - echo $CI_REPOSITORY_URL
+    - git config --global user.email "${CI_EMAIL}"
+    - git config --global user.name "${CI_USERNAME}"
     - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r "s,.+@([^/]+)/,git@\\1:,")
     - git remote set-url --push origin ${REPOSITORY_URL}
 
     - pip install commitizen
     - cz bump
     - git push
+    - git push --tags
 
 release:
   image: python:3.8

@@ -91,7 +91,7 @@ bump:
   only:
     - master
   before_script:
-    - apk add --no-cache py-pip
+    #- apk add --no-cache py-pip
     - pip install commitizen
       # setup ssh
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh

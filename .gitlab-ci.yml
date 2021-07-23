@@ -117,6 +117,7 @@ release:
   only:
     - tags
   dependencies:
+    - sdist
     - wheels_python37_x86_64
     - wheels_python38_x86_64
     - wheels_python39_x86_64

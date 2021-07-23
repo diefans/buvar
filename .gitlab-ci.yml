@@ -86,7 +86,7 @@ sdist:
 
 
 bump:
-  image: python:3.8-alpine
+  image: python:3.8
   stage: bump
   only:
     - master
@@ -110,7 +110,7 @@ bump:
     - git push
 
 release:
-  image: python:3.8-alpine
+  image: python:3.8
   stage: release
   only:
     - tags

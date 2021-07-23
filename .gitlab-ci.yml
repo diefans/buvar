@@ -91,7 +91,6 @@ bump:
   only:
     - master
   before_script:
-    #- apk add --no-cache py-pip
     - pip install commitizen
       # setup ssh
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -105,10 +104,11 @@ bump:
     - REPOSITORY_URL=$(echo $CI_REPOSITORY_URL | sed -r "s,.+@([^/]+)/,git@\\1:,")
     - git remote set-url --push origin ${REPOSITORY_URL}
 
-    - pip install commitizen
+    - test -n "$(git show-ref refs/heads/master)" && git branch -D master
+    - git checkout -b master
     - cz bump
-    - git push
-    - git push --tags
+    - git push origin master:$CI_COMMIT_REF_NAME
+    - git push origin $(cz version -p)
 
 release:
   image: python:3.8
@@ -120,7 +120,6 @@ release:
     - wheels_python38_x86_64
     - wheels_python39_x86_64
   before_script:
-    - apk add --no-cache py-pip
-  script:
     - pip install twine
+  script:
     - ls -la ./dist

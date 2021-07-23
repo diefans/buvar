@@ -1,0 +1,12 @@
+[tool]
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.43.0"
+tag_format = "$version"
+
+
+version_files = [
+    "VERSION",
+	"setup.py:version",
+	"src/buvar/__init__.py"
+]

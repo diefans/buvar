@@ -27,7 +27,7 @@ with open("README.rst") as f:
 
 install_requires = [
     "attrs",
-    "cattrs",
+    "cattrs<=1.10.0",
     "multidict>=4.5,<5.0",
     "structlog>=20.1.0",
     "toml>=0.10",
@@ -39,7 +39,7 @@ install_requires = [
 extras_require = {
     "tests": [
         "pytest>=4.6",
-        "pytest-cov>=^2.7",
+        "pytest-cov>=2.7",
         "pytest-asyncio>=0.11.0",
         "pytest-benchmark>=3.2.2",
         "mock>=3.0",

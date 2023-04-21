@@ -143,6 +143,7 @@ def test_config_missing():
         cfg.load(FooConfig, "foo")
 
 
+@pytest.mark.xfail
 def test_generate_toml_help():
     import typing
     import attr

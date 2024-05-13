@@ -6,7 +6,6 @@ These tasks are then run until complete.
 A py:obj:`buvar.components.Components` context is stacked in way, that plugins
 share the same context, while tasks don't, but may access the plugin context.
 
-
     >>> loop = asyncio.get_event_loop()
     >>> state = {}
     >>> async def prepare(load: Loader):
@@ -26,6 +25,7 @@ share the same context, while tasks don't, but may access the plugin context.
     ['foo']
     >>> assert state == {'task': True}
 """
+# XXX FIXME doctest sometime shows log messages
 import asyncio
 import collections.abc
 import inspect
@@ -177,7 +177,7 @@ class Stage:
             .push()
         )
         # provide basic components
-        self.cancel = self.context.add(Cancel(loop=self.loop))
+        self.cancel = self.context.add(Cancel())
         self.teardown = self.context.add(Teardown())
         self.loader = self.context.add(Loader())
         self.signals = self.context.add((signals or Signals)(self))

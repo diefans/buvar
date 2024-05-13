@@ -190,7 +190,7 @@ def test_generate_toml_help():
     assert (
         help.as_string()
         == """# BarConfig.
-# 
+#
 # bla bla
 # bli bli
 
@@ -199,7 +199,7 @@ def test_generate_toml_help():
 
 [foo]
 # FooConfig.
-# 
+#
 # bim bam
 
 # string

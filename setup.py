@@ -27,11 +27,9 @@ with open("README.rst") as f:
 
 install_requires = [
     "attrs",
-    "cattrs<=1.10.0",
-    "multidict>=4.5,<5.0",
+    "cattrs<=22.1.0",
     "structlog>=20.1.0",
     "toml>=0.10",
-    "tomlkit>=0.5.3",
     "typing_inspect>=0.4.0",
     "cached_property",
     "uritools",
@@ -69,7 +67,7 @@ setup_kwargs = {
     "long_description_content_type": "text/x-rst",
     "author": "Oliver Berger",
     "author_email": "diefans@gmail.com",
-    "url": "https://gitlab.com/diefans/buvar",
+    "url": "https://github.com/diefans/buvar",
     "package_dir": {"": "src"},
     "packages": find_packages("src"),
     "include_package_data": True,

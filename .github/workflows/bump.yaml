@@ -1,9 +1,10 @@
 name: Bump version
 
 on:
-  push:
-    branches:
-      - master
+  # push:
+  #   branches:
+  #     - master
+  workflow_dispatch:
 
 jobs:
   bump-version:

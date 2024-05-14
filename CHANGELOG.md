@@ -1,3 +1,25 @@
+## 0.43.6 (2024-05-14)
+
+### Fix
+
+- remove build-system (#15)
+- publish to pypi (#14)
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- packaging
+- unquote bash globbing
+- use checkout@v3 (#13)
+- checkout project (#12)
+- path in manylinux packaging (#11)
+- add package action and make bump a manual step (#10)
+
 ## 0.43.5 (2024-05-14)
 
 ### Fix

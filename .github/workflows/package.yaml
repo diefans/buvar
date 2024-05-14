@@ -104,6 +104,8 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/${{ env.PROJECT }}  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
     strategy:
       fail-fast: false
       matrix:

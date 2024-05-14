@@ -33,7 +33,7 @@ jobs:
         with:
           name: buvar-${{ github.ref }}
           path: |
-            ./dist/${PROJECT}*.tar.gz
+            ./dist/${{ env.PROJECT }}-*.tar.gz
 
   package_wheels:
     strategy:

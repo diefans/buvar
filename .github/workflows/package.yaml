@@ -6,8 +6,35 @@ on:
 
   workflow_dispatch:
 
+env:
+  PROJECT: buvar
+
 jobs:
-  package:
+  package_sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install build
+
+      - name: Build source distribution
+        run: |
+          python -m build sdist
+
+      - name: archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: buvar-${{ github.ref }}
+          path: |
+            ./dist/${PROJECT}*.tar.gz
+
+  package_wheels:
     strategy:
       fail-fast: false
       matrix:
@@ -19,12 +46,10 @@ jobs:
           - cp310-cp310
           - cp39-cp39
           - cp38-cp38
-          - cp37-cp37m
+          # - cp37-cp37m
     runs-on: ubuntu-latest
     container:
       image: quay.io/pypa/manylinux2014_x86_64:latest
-    env:
-      PROJECT: buvar
     steps:
       # XXX FIXME see checkout@v4 not working with container
       # https://github.com/actions/checkout/issues/1487
@@ -32,7 +57,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: |
+      - name: build wheels
+        run: |
           export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
           pip wheel -w ./wheelhouse cython pip
           pip install -U cython pip -f ./wheelhouse
@@ -42,3 +68,18 @@ jobs:
           pip install ./dist/${PROJECT}*${{ matrix.version }}*.whl
           pip install "${PROJECT}[tests]" -f ./dist -f ./wheelhouse
           pytest tests
+
+      - name: archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: buvar-${{ matrix.version }}-${{ matrix.platform }}
+          path: |
+            ./dist/${PROJECT}*${{ matrix.version }}*.whl
+
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload to pypi.org
+        run: |
+          pip install twine
+          ls -la ./dist/${PROJECT}*

@@ -1,4 +1,4 @@
-__version__ = "0.43.1"
+__version__ = "0.43.2"
 __version_info__ = tuple(__version__.split("."))
 
 

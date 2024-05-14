@@ -22,7 +22,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh run watch --exit-status "$(gh run list -w build.yml -b master -L 1 --json databaseId,headSha -q '.[]|[.databaseId, .headSha]|@tsv' | grep ${{ github.sha }} | cut -f1)"
+          gh run watch --exit-status "$(gh run list -w build.yaml -b master -L 1 --json databaseId,headSha -q '.[]|[.databaseId, .headSha]|@tsv' | grep ${{ github.sha }} | cut -f1)"
 
       - name: update pip
         run: pip install -U pip

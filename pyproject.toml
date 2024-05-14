@@ -3,7 +3,7 @@
 name = "cz_conventional_commits"
 version = "0.43.2"
 tag_format = "$version"
-bump_message = "release $current_version → $new_version [skip-ci]"
+bump_message = "release: $current_version → $new_version [skip-ci]"
 
 version_files = [
     "VERSION",

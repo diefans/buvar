@@ -26,6 +26,7 @@ jobs:
       - name: Build source distribution
         run: |
           python setup.py sdist
+          ls -la ./dist
 
       - name: archive artifacts
         uses: actions/upload-artifact@v4

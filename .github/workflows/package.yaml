@@ -25,7 +25,7 @@ jobs:
 
       - name: Build source distribution
         run: |
-          python -m build sdist
+          python setup.py sdist
 
       - name: archive artifacts
         uses: actions/upload-artifact@v4
@@ -77,8 +77,14 @@ jobs:
             ./dist/${PROJECT}*${{ matrix.version }}*.whl
 
   upload:
+    needs:
+      - package_sdist
+      - package_wheels
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: buvar-${{ github.ref }}
       - name: Upload to pypi.org
         run: |
           pip install twine

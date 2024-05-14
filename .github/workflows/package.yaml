@@ -27,6 +27,10 @@ jobs:
       PATH: /opt/python/${{ matrix.version }}/bin:/usr/local/bin:/usr/bin
       PROJECT: buvar
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - run: |
           pip wheel -w ./wheelhouse cython pip
           pip install -U cython pip -f ./wheelhouse

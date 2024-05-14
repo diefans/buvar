@@ -37,8 +37,8 @@ jobs:
           pip wheel -w ./wheelhouse cython pip
           pip install -U cython pip -f ./wheelhouse
           python setup.py bdist_wheel -d wheels
-          auditwheel repair "./wheels/${PROJECT}*${{ matrix.version }}*.whl" \
+          auditwheel repair ./wheels/${PROJECT}*${{ matrix.version }}*.whl \
             --plat ${{ matrix.platform }} -w ./dist
-          pip install "./dist/${PROJECT}*${{ matrix.version }}*.whl"
+          pip install ./dist/${PROJECT}*${{ matrix.version }}*.whl
           pip install "${PROJECT}[tests]" -f ./dist -f ./wheelhouse
           pytest tests

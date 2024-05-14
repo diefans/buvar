@@ -31,6 +31,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: buvar-sdist
+          retention-days: 1
           path: |
             ./dist/${{ env.PROJECT }}-*.tar.gz
 
@@ -73,10 +74,11 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: buvar-${{ matrix.version }}-${{ matrix.platform }}
+          retention-days: 1
           path: |
             ./dist/${{ env.PROJECT }}-*${{ matrix.version }}*.whl
 
-  upload:
+  upload_sdist:
     needs:
       - package_sdist
       - package_wheels
@@ -88,4 +90,29 @@ jobs:
       - name: Upload to pypi.org
         run: |
           pip install twine
-          ls -la ./dist/${PROJECT}*
+          ls -la ./
+
+  upload_wheels:
+    needs:
+      - package_sdist
+      - package_wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - manylinux2014_x86_64
+        version:
+          - cp312-cp312
+          - cp311-cp311
+          - cp310-cp310
+          - cp39-cp39
+          - cp38-cp38
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: buvar-${{ matrix.version }}-${{ matrix.platform }}
+      - name: Upload to pypi.org
+        run: |
+          pip install twine
+          ls -la ./

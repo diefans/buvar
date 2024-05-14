@@ -1,0 +1,38 @@
+name: Packaging
+
+on:
+  release:
+    types: [published]
+
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - manylinux2014_x86_64
+        version:
+          - cp312-cp312
+          - cp311-cp311
+          - cp310-cp310
+          - cp39-cp39
+          - cp38-cp38
+          - cp37-cp37m
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64:latest
+    env:
+      PATH: /opt/python/${{ matrix.version }}/bin:/usr/local/bin
+      PROJECT: buvar
+    steps:
+      - run: |
+          pip wheel -w ./wheelhouse cython pip
+          pip install -U cython pip -f ./wheelhouse
+          python setup.py bdist_wheel -d wheels
+          auditwheel repair "./wheels/${PROJECT}*${{ matrix.version }}*.whl" \
+            --plat ${{ matrix.platform }} -w ./dist
+          pip install "./dist/${PROJECT}*${{ matrix.version }}*.whl"
+          pip install "${PROJECT}[tests]" -f ./dist -f ./wheelhouse
+          pytest tests

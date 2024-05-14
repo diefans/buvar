@@ -78,24 +78,32 @@ jobs:
           path: |
             ./dist/${{ env.PROJECT }}-*${{ matrix.version }}*.whl
 
-  upload_sdist:
+  publish_sdist:
     needs:
       - package_sdist
       - package_wheels
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ env.PROJECT }}  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: buvar-sdist
-      - name: Upload to pypi.org
-        run: |
-          pip install twine
-          ls -la ./
+          path: dist
 
-  upload_wheels:
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish_wheels:
     needs:
       - package_sdist
       - package_wheels
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ env.PROJECT }}  # Replace <package-name> with your PyPI project name
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +120,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: buvar-${{ matrix.version }}-${{ matrix.platform }}
-      - name: Upload to pypi.org
-        run: |
-          pip install twine
-          ls -la ./
+          path: dist
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

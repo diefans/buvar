@@ -24,7 +24,7 @@ jobs:
     container:
       image: quay.io/pypa/manylinux2014_x86_64:latest
     env:
-      PATH: /opt/python/${{ matrix.version }}/bin:/usr/local/bin
+      PATH: /opt/python/${{ matrix.version }}/bin:/usr/local/bin:/usr/bin
       PROJECT: buvar
     steps:
       - run: |

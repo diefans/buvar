@@ -31,7 +31,7 @@ jobs:
       - name: archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: buvar
+          name: buvar-sdist
           path: |
             ./dist/${{ env.PROJECT }}-*.tar.gz
 
@@ -71,7 +71,7 @@ jobs:
           pytest tests
 
       - name: archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: buvar-${{ matrix.version }}-${{ matrix.platform }}
           path: |

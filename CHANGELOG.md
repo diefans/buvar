@@ -1,3 +1,9 @@
+## 0.43.9 (2024-09-10)
+
+### Fix
+
+- use manylinux_2_28 ang actions/checkout@v4
+
 ## 0.43.8 (2024-09-10)
 
 ### Fix

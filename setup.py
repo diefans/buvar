@@ -27,7 +27,7 @@ with open("README.rst") as f:
 
 install_requires = [
     "attrs",
-    "cattrs<=22.1.0",
+    "cattrs",
     "structlog>=20.1.0",
     "toml>=0.10",
     "typing_inspect>=0.4.0",

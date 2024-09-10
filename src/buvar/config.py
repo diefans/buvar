@@ -6,21 +6,10 @@ import typing
 import attr
 import cattr
 import structlog
-import typing_inspect
 
 from . import di, util
 
-CNF_KEY = "buvar_config"
-
-
 logger = structlog.get_logger()
-
-
-# since we only need a single instance, we just hide the class magically
-@functools.partial(lambda x: x())
-class missing:
-    def __repr__(self):
-        return self.__class__.__name__
 
 
 @attr.s(auto_attribs=True)
@@ -29,52 +18,7 @@ class ConfigValue:
     help: typing.Optional[str] = None
 
 
-def var(
-    default=missing,
-    converter=None,
-    factory=missing,
-    name=None,
-    validator=None,
-    help=None,  # noqa: W0622,
-):
-    return attr.ib(
-        metadata={CNF_KEY: ConfigValue(name, help)},
-        converter=converter,
-        validator=validator,
-        **({"default": default} if factory is missing else {"factory": factory}),
-    )
-
-
-def _env_to_bool(val):
-    """
-    Convert *val* to a bool if it's not a bool in the first place.
-    """
-    if isinstance(val, bool):
-        return val
-    val = val.strip().lower()
-    if val in ("1", "true", "yes", "on"):
-        return True
-
-    return False
-
-
-def _env_to_list(val):
-    """Take a comma separated string and split it."""
-    if isinstance(val, str):
-        val = map(lambda x: x.strip(), val.split(","))
-    return val
-
-
-def bool_var(default=missing, name=None, help=None):  # noqa: W0622
-    return var(default=default, name=name, converter=_env_to_bool, help=help)
-
-
-def list_var(default=missing, name=None, help=None):  # noqa: W0622
-    return var(default=default, name=name, converter=_env_to_list, help=help)
-
-
 class ConfigSource(dict):
-
     """Config dict, with loadable sections.
 
     >>> @attr.s(auto_attribs=True)
@@ -117,8 +61,7 @@ class ConfigSource(dict):
         return config
 
 
-class ConfigError(Exception):
-    ...
+class ConfigError(Exception): ...
 
 
 # to get typing_inspect.is_generic_type()
@@ -133,7 +76,7 @@ class Config:
     __buvar_config_section__: typing.Optional[str] = skip_section
     __buvar_config_sections__: typing.Dict[str, type] = {}
 
-    def __init_subclass__(cls, *, section: str = skip_section, **kwargs):
+    def __init_subclass__(cls, *, section: str = skip_section, **_):
         if section is skip_section:
             return
         if section in cls.__buvar_config_sections__:
@@ -201,45 +144,25 @@ def create_env_config(cls, *env_prefix):
     return env_config
 
 
-class RelaxedConverter(cattr.Converter):
-    """This py:obj:`RelaxedConverter` is ignoring undefined and defaulting to
-    None on optional attributes."""
-
-    def structure_attrs_fromdict(
-        self, obj: typing.Mapping, cl: typing.Type
-    ) -> typing.Any:
-        """Instantiate an attrs class from a mapping (dict)."""
-        conv_obj = {}
-        dispatch = self._structure_func.dispatch
-        for a in attr.fields(cl):
-            # We detect the type by metadata.
-            type_ = a.type
-            if type_ is None:
-                # No type.
-                continue
-            name = a.name
-            try:
-                val = obj[name]
-            except KeyError:
-                if typing_inspect.is_optional_type(type_):
-                    if a.default in (missing, attr.NOTHING):
-                        val = None
-                    else:
-                        val = a.default
-                elif a.default in (missing, attr.NOTHING):
-                    raise ValueError("Attribute is missing", a.name)
-                else:
-                    continue
-
-            if a.converter is None:
-                val = dispatch(type_)(val, type_)
-
-            conv_obj[name] = val
-
-        return cl(**conv_obj)
+# FIXME: deprecate relaxed_converter
+converter = relaxed_converter = cattr.Converter()
 
 
-relaxed_converter = RelaxedConverter()
+def _env_to_bool(val, type):
+    """
+    Convert *val* to a bool if it's not a bool in the first place.
+    """
+    if isinstance(val, type):
+        return val
+    elif isinstance(val, str):
+        val = val.strip().lower()
+        if val in ("1", "true", "yes", "on"):
+            return True
+
+    return False
+
+
+relaxed_converter.register_structure_hook(bool, _env_to_bool)
 
 
 def generate_env_help(cls, env_prefix=""):

@@ -15,7 +15,7 @@ async def test_config_source_schematize(mocker):
     class FooConfig:
         bar: str = "default"
         foobar: float = 9.87
-        baz: bool = config.bool_var(default=False)
+        baz: bool = False
 
     @attr.s(auto_attribs=True)
     class BarConfig:
@@ -25,9 +25,9 @@ async def test_config_source_schematize(mocker):
     @attr.s(auto_attribs=True, kw_only=True)
     class BimConfig:
         bar: BarConfig
-        bam: bool = config.bool_var()
-        bum: int = config.var(123)
-        lst: typing.List = config.var(list)
+        bam: bool
+        bum: int = 123
+        lst: typing.List
 
     sources = [
         {"bar": {"bim": "123.4", "foo": {"bar": "1.23", "baz": "true"}}},
@@ -53,6 +53,7 @@ async def test_config_source_schematize(mocker):
     bim = cfg.load(BimConfig, "bim")
     bar = cfg.load(BarConfig, "bar")
     foo = cfg.load(FooConfig, "foo")
+    # (FooConfig(bar="value", foobar=123.5, baz=True),)
 
     assert (bar, foo, bim) == (
         BarConfig(bim=0.0, foo=FooConfig(bar="1.23", foobar=7.77, baz=False)),
@@ -74,7 +75,7 @@ async def test_config_generic_adapter(mocker):
     class FooConfig(config.Config, section="foo"):
         bar: str = "default"
         foobar: float = 9.87
-        baz: bool = config.bool_var(default=False)
+        baz: bool = False
 
     @attr.s(auto_attribs=True)
     class BarConfig(config.Config, section="bar"):
@@ -84,9 +85,9 @@ async def test_config_generic_adapter(mocker):
     @attr.s(auto_attribs=True, kw_only=True)
     class BimConfig(config.Config, section="bim"):
         bar: BarConfig
-        bam: bool = config.bool_var()
-        bum: int = config.var(123)
-        lst: typing.List = config.var(list)
+        bam: bool
+        bum: int = 123
+        lst: typing.List
 
     sources = [
         {"bar": {"bim": "123.4", "foo": {"bar": "1.23", "baz": "true"}}},
@@ -130,16 +131,17 @@ def test_load_general_config():
 
 def test_config_missing():
     import attr
+    from cattrs.errors import ClassValidationError
     from buvar import config
 
     source: dict = {"foo": {}}
 
     @attr.s(auto_attribs=True)
     class FooConfig:
-        bar: str = config.var()
+        bar: str
 
     cfg = config.ConfigSource(source)
-    with pytest.raises(ValueError):
+    with pytest.raises(ClassValidationError):
         cfg.load(FooConfig, "foo")
 
 
@@ -156,11 +158,11 @@ def test_generate_toml_help():
         bim bam
         """
 
-        string_val: str = config.var(help="string")
-        float_val: float = config.var(9.87, help="float")
-        bool_val: bool = config.bool_var(help="bool")
-        int_val: int = config.var(help="int")
-        list_val: typing.List = config.var(list, help="list")
+        string_val: str
+        float_val: float = 9.87
+        bool_val: bool
+        int_val: int
+        list_val: typing.List
 
     @attr.s(auto_attribs=True)
     class BarConfig:
@@ -171,7 +173,7 @@ def test_generate_toml_help():
         """
 
         bim: float
-        foo: FooConfig = config.var(help="foo")
+        foo: FooConfig
 
     env_vars = {}
     config_fields = list(config.traverse_attrs(BarConfig, target=env_vars))
@@ -279,20 +281,17 @@ async def test_config_subclass_abc(mocker):
 
     mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
 
-    class GeneralConfig(config.Config, section=None):
-        ...
+    class GeneralConfig(config.Config, section=None): ...
 
     class FooBase(metaclass=abc.ABCMeta):
         @abc.abstractmethod
-        def foo(self):
-            ...
+        def foo(self): ...
 
     @attr.s(auto_attribs=True)
     class FooConfig(config.Config, FooBase, section="foo"):
         bar: str
 
-        def foo(self):
-            ...
+        def foo(self): ...
 
     assert config.skip_section not in config.Config.__buvar_config_sections__
     assert FooBase not in config.Config.__buvar_config_sections__.values()

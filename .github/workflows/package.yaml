@@ -13,7 +13,7 @@ jobs:
   package_sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -40,22 +40,16 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - manylinux2014_x86_64
-          - manylinux2014_aarch64
+          - manylinux_2_28
         version:
           - cp312-cp312
           - cp311-cp311
           - cp310-cp310
-          - cp39-cp39
-          - cp38-cp38
-          # - cp37-cp37m
     runs-on: ubuntu-latest
     container:
-      image: quay.io/pypa/manylinux2014_x86_64:latest
+      image: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
-      # XXX FIXME see checkout@v4 not working with container
-      # https://github.com/actions/checkout/issues/1487
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -111,14 +105,11 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - manylinux2014_x86_64
           - manylinux2014_aarch64
         version:
           - cp312-cp312
           - cp311-cp311
           - cp310-cp310
-          - cp39-cp39
-          - cp38-cp38
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v3

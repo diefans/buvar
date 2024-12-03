@@ -1,19 +1,21 @@
 { pkgs, lib, config, inputs, ... }:
-
+let
+  pkgs-unstable = import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
+in
 {
   # https://devenv.sh/basics/
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = [
-	  pkgs.git
-	  # pkgs.nodejs
-	  # pkgs.nodePackages.npm
-	  pkgs.pyright
-	  pkgs.ruff
-	  # XXX uses python 3.11 and wrong cattrs
-	  # pkgs.ruff-lsp
-	  # pkgs.nodePackages.cdk8s-cli
+  packages = with pkgs-unstable; [
+    git
+    # pkgs.nodejs
+    # pkgs.nodePackages.npm
+    pyright
+    ruff
+    # XXX uses python 3.11 and wrong cattrs
+    # pkgs.ruff-lsp
+    # pkgs.nodePackages.cdk8s-cli
   ];
 
   # https://devenv.sh/scripts/
@@ -23,12 +25,7 @@
     hello
     git --version
 
-    uv pip install -e ".[tests]"
-    uv pip install pdbpp
-
-	# this is too late
-    # cat requirements-dev.txt > reqs.txt
-    # cat requirements.txt >> reqs.txt
+    uv pip install -e ".[tests]" pdbpp
   '';
 
   # https://devenv.sh/tests/
@@ -41,19 +38,19 @@
 
   # https://devenv.sh/languages/
   languages.python = {
-	enable = true;
-	version = "3.12.3";
-	uv.enable = true;
-	venv = {
-		enable = true;
-		# requirements = ./requirements.txt;
-	};
+    enable = true;
+    version = "3.12.3";
+    uv.enable = true;
+    venv = {
+      enable = true;
+      # requirements = ./requirements.txt;
+    };
   };
   # languages.javascript = {
-	 #  enable = true; # adds node LTS & npm
-	 #  corepack.enable = true;
-	 #  npm.install.enable = true;
-	 #  # package = pkgs.nodejs-18_x; # <- if you need to override npm version
+  #  enable = true; # adds node LTS & npm
+  #  corepack.enable = true;
+  #  npm.install.enable = true;
+  #  # package = pkgs.nodejs-18_x; # <- if you need to override npm version
   # };
 
   # https://devenv.sh/pre-commit-hooks/

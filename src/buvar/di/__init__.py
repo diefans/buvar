@@ -26,6 +26,7 @@ Register a class, function or method to adapt arguments into something else.
 >>> assert isinstance(foo, Foo)
 
 """
+
 import abc
 import contextvars as cv
 import functools as ft
@@ -38,6 +39,7 @@ import typing_inspect as ti
 
 from buvar import util
 from .exc import ResolveError, missing
+
 
 try:
     # gains over 100% speed up
@@ -63,11 +65,11 @@ class Adapters(dict, _impl.AdaptersImpl):
         # since we want to cache our lookup, we need have to be hashable
         return object.__hash__(self)
 
-    def register(self, *implementations, frame=None):
+    def register(self, *implementations, frame=None, **kwargs):
         frame = frame or sys._getframe(1)
         for implementation in implementations:
             adapter = Adapter(implementation, frame=frame)
-            adapter.register(self)
+            adapter.register(self, **kwargs)
         self.lookup.cache_clear()
 
     @ft.lru_cache(maxsize=None)
@@ -168,7 +170,8 @@ def evaluated_signature(func: t.Callable, frame=None):
                 annotation=evaluate(p.annotation, frame=frame),
                 default=p.default
                 # we change empty to missing for later convenience
-                if p.default is not inspect.Signature.empty else missing,
+                if p.default is not inspect.Signature.empty
+                else missing,
             )
             for p in signature.parameters.values()
         ],
@@ -245,10 +248,13 @@ class GenericAdapter(CallableAdapter):
         registry = registry.setdefault(cls, {})
         return registry
 
-    def register(self, registry: t.Dict):
+    def register(self, registry: t.Dict, replace: bool = False):
         registry = self.registry(registry)
         for base in base_matrix(self.return_type):
-            registry.setdefault(base, set()).add(self)
+            if replace:
+                registry[base] = {self}
+            else:
+                registry.setdefault(base, set()).add(self)
 
     @classmethod
     def lookup(cls, registry: t.Dict, tp):
@@ -314,9 +320,9 @@ buvar_adapters = cv.ContextVar(__name__)
 buvar_adapters.set(Adapters())
 
 
-def register(*impls):
+def register(*impls, **kwargs):
     adapters = buvar_adapters.get()
-    adapters.register(*impls, frame=sys._getframe(1))
+    adapters.register(*impls, frame=sys._getframe(1), **kwargs)
 
 
 async def nject(*targets, **dependencies):

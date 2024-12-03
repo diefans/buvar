@@ -7,6 +7,7 @@ Fixtures and markers for testing.
 
     @pytest.mark.buvar_plugins("buvar.config")
 """
+
 import pytest
 
 PLUGINS_MARK = "buvar_plugins"

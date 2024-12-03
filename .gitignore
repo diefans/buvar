@@ -1,3 +1,6 @@
+__pycache__
+*.egg-info
+dist
 # we only distribute source
 c_di.c
 c_di.*.so
@@ -5,6 +8,8 @@ c_components.c
 c_components.*.so
 c_context.c
 c_context.*.so
+
+
 # Devenv
 .devenv*
 devenv.local.nix

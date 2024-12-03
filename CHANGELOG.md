@@ -1,3 +1,9 @@
+## 0.43.12 (2024-12-03)
+
+### Fix
+
+- install setuptools for package_wheels
+
 ## 0.43.11 (2024-12-03)
 
 ### Fix

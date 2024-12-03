@@ -56,7 +56,8 @@ jobs:
       - name: build wheels
         run: |
           export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
-          pip wheel -w ./wheelhouse cython pip setuptools
+          pip install setuptools
+          pip wheel -w ./wheelhouse cython pip
           pip install -U cython pip -f ./wheelhouse
           python setup.py bdist_wheel -d wheels
           auditwheel repair ./wheels/${PROJECT}*${{ matrix.version }}*.whl \

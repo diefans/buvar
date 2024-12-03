@@ -25,6 +25,7 @@ share the same context, while tasks don't, but may access the plugin context.
     ['foo']
     >>> assert state == {'task': True}
 """
+
 # XXX FIXME doctest sometime shows log messages
 import asyncio
 import collections.abc

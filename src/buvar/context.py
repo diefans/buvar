@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import contextvars
 import functools
+import sys
 
 from . import components
 
@@ -19,19 +20,36 @@ class StackingTaskFactory:
     def __init__(self, *, parent_factory=None):
         self.parent_factory = parent_factory
 
-    def __call__(self, loop, coro, context=None):
-        context = current_context().push()
-        token = buvar_context.set(context)
-        # with child():
-        task = (
-            self.parent_factory
-            if self.parent_factory is not None
-            else asyncio.tasks.Task
-        )(loop=loop, coro=coro)
-        try:
-            return task
-        finally:
-            buvar_context.reset(token)
+    if sys.version_info < (3, 11):
+
+        def __call__(self, loop, coro, context=None):
+            component_context = current_context().push()
+            token = buvar_context.set(component_context)
+            # with child():
+            task = (
+                self.parent_factory
+                if self.parent_factory is not None
+                else asyncio.tasks.Task
+            )(loop=loop, coro=coro)
+            try:
+                return task
+            finally:
+                buvar_context.reset(token)
+    else:
+        # INFO: Task() accepts context
+        def __call__(self, loop, coro, context=None):
+            component_context = current_context().push()
+            token = buvar_context.set(component_context)
+            # with child():
+            task = (
+                self.parent_factory
+                if self.parent_factory is not None
+                else asyncio.tasks.Task
+            )(loop=loop, coro=coro, context=context)
+            try:
+                return task
+            finally:
+                buvar_context.reset(token)
 
     @classmethod
     def set(cls, *, loop=None):

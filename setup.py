@@ -44,7 +44,6 @@ extras_require = {
         "pytest-mock>=1.10",
         "pytest-watch>=4.2",
         "pytest-randomly>=3.1",
-        "pytest-doctestplus>=0.5",
         "pytest-anything",
     ],
     "dev": [

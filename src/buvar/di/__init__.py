@@ -38,8 +38,8 @@ import typing as t
 import typing_inspect as ti
 
 from buvar import util
-from .exc import ResolveError, missing
 
+from .exc import ResolveError, missing
 
 try:
     # gains over 100% speed up
@@ -204,8 +204,13 @@ class BaseMatrix:
             yield t.Optional[base]
 
     def iter_generic(self, tp):
+        if hasattr(tp, "copy_with"):
+            copy_with = tp.copy_with
+        else:
+            # INFO: using dict[str, ...] is also generic, but dict provides no copy_with
+            copy_with = ft.partial(tp.__class__, tp.__origin__)
         args = ti.get_args(tp, evaluate=True)
-        yield from (tp.copy_with(params) for params in it.product(*map(self, args)))
+        yield from (copy_with(params) for params in it.product(*map(self, args)))
 
 
 base_matrix = BaseMatrix()

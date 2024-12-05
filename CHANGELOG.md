@@ -1,3 +1,9 @@
+## 0.43.16 (2024-12-05)
+
+### Fix
+
+- add a fixture to set and reset Adapters (#21)
+
 ## 0.43.15 (2024-12-05)
 
 ### Fix

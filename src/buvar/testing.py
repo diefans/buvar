@@ -101,8 +101,8 @@ def pytest_pyfunc_call(pyfuncitem):
 
 def wrap_in_buvar_plugin_context(context, func):
     """Enable test function to run in plugin context."""
-    import functools
     import contextvars
+    import functools
 
     from buvar.context import buvar_context
 
@@ -117,3 +117,15 @@ def wrap_in_buvar_plugin_context(context, func):
         return ctx.run(wrapper)
 
     return inner
+
+
+@pytest.fixture
+def buvar_adapters_setup_contextvars():
+    """Set and reset adapters.
+    This fixture should be used, if you need to reset adapter registration for a test.
+    """
+    from buvar import di
+
+    token = di.buvar_adapters.set(di.Adapters())
+    yield
+    di.buvar_adapters.reset(token)

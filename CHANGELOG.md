@@ -1,3 +1,9 @@
+## 0.43.17 (2024-12-05)
+
+### Fix
+
+- copy_with for BaseMatrix generic types (#22)
+
 ## 0.43.16 (2024-12-05)
 
 ### Fix

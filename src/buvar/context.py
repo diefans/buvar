@@ -1,4 +1,5 @@
 """Provide a component registry as contextvar."""
+
 import asyncio
 import contextlib
 import contextvars
@@ -18,7 +19,7 @@ class StackingTaskFactory:
     def __init__(self, *, parent_factory=None):
         self.parent_factory = parent_factory
 
-    def __call__(self, loop, coro):
+    def __call__(self, loop, coro, context=None):
         context = current_context().push()
         token = buvar_context.set(context)
         # with child():

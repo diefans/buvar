@@ -70,9 +70,9 @@ class Adapters(dict, _impl.AdaptersImpl):
         for implementation in implementations:
             adapter = Adapter(implementation, frame=frame)
             adapter.register(self, **kwargs)
-        self.lookup.cache_clear()
+        # self.lookup.cache_clear()
 
-    @ft.lru_cache(maxsize=None)
+    # @ft.lru_cache(maxsize=None)
     def lookup(self, tp):
         errors = {}
 
@@ -224,8 +224,15 @@ class CallableAdapter(Adapter, inspect.Signature):
             return_annotation=signature.return_annotation,
         )
 
-    def ___repr__(self):
-        return f"<{self.__class__.__name__} {self.parameters}"
+    def __hash__(self):
+        # INFO:we hash the signature and the implementation, because signature
+        # may be the same for different implememtations
+        return hash(
+            (super(inspect.Signature, self).__hash__(), hash(self.implementation))
+        )
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}[{self.implementation}] {self.parameters}"
 
     @util.cached
     def return_type(self):

@@ -1,3 +1,4 @@
+import dataclasses
 import functools
 import os
 import sys
@@ -94,6 +95,14 @@ class Config:
         return config
 
 
+def get_fields(cls):
+    if dataclasses.is_dataclass(cls):
+        return dataclasses.fields(cls)
+    elif attr.has(cls):
+        return attr.fields(cls)
+    raise TypeError("Only dataclasses or attrs supported", cls)
+
+
 def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
     """Traverse a nested attrs structure, create a dictionary for each nested
     attrs class and yield all fields resp. path, type and target dictionary."""
@@ -101,7 +110,7 @@ def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
         (
             target if target is not None else {},
             (),
-            list(attr.fields(cls)),
+            list(get_fields(cls)),
             get_type_hints(cls),
         )
     ]
@@ -120,7 +129,7 @@ def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
                 target, path, fields, hints = (
                     field_target,
                     field_path,
-                    list(attr.fields(field_type)),
+                    list(get_fields(field_type)),
                     get_type_hints(field_type),
                 )
             else:

@@ -1,3 +1,9 @@
+## 0.43.18 (2025-02-20)
+
+### Fix
+
+- enable to use dataclasses as config type (#23)
+
 ## 0.43.17 (2024-12-05)
 
 ### Fix

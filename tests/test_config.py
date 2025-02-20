@@ -7,9 +7,11 @@ import pytest
 # )
 @pytest.mark.asyncio
 async def test_config_source_schematize(mocker):
-    from buvar import config
     import typing
+
     import attr
+
+    from buvar import config
 
     @attr.s(auto_attribs=True)
     class FooConfig:
@@ -65,8 +67,10 @@ async def test_config_source_schematize(mocker):
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.config")
 async def test_config_generic_adapter(mocker):
-    import attr
     import typing
+
+    import attr
+
     from buvar import config, di
 
     mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
@@ -113,8 +117,10 @@ async def test_config_generic_adapter(mocker):
 
 
 def test_load_general_config():
-    import attr
     import typing
+
+    import attr
+
     from buvar import config
 
     sources = [{"foo": "bar", "group": {"some": "value"}}]
@@ -132,6 +138,7 @@ def test_load_general_config():
 def test_config_missing():
     import attr
     from cattrs.errors import ClassValidationError
+
     from buvar import config
 
     source: dict = {"foo": {}}
@@ -148,7 +155,9 @@ def test_config_missing():
 @pytest.mark.xfail
 def test_generate_toml_help():
     import typing
+
     import attr
+
     from buvar import config
 
     @attr.s(auto_attribs=True)
@@ -225,7 +234,9 @@ list_val = []
 
 def test_nested_attrs_typing():
     import typing
+
     import attr
+
     from buvar import config
 
     @attr.s(auto_attribs=True)
@@ -249,8 +260,9 @@ def test_nested_attrs_typing():
 
 
 def test_env_config(mocker):
-    from buvar import config
     import attr
+
+    from buvar import config
 
     @attr.s(auto_attribs=True)
     class Baz:
@@ -276,7 +288,9 @@ def test_env_config(mocker):
 @pytest.mark.buvar_plugins("buvar.config")
 async def test_config_subclass_abc(mocker):
     import abc
+
     import attr
+
     from buvar import config, di
 
     mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
@@ -299,4 +313,20 @@ async def test_config_subclass_abc(mocker):
     cfg = config.ConfigSource({"foo": {"bar": "abc"}}, env_prefix="PREFIX")
     foo_config = await di.nject(FooConfig, source=cfg)
 
+    assert foo_config == FooConfig(bar="abc")
+
+
+@pytest.mark.asyncio
+@pytest.mark.buvar_plugins("buvar.config")
+async def test_config_dataclass():
+    import dataclasses as dc
+
+    from buvar import config, di
+
+    @dc.dataclass
+    class FooConfig(config.Config, section="foo"):
+        bar: str
+
+    cfg = config.ConfigSource({"foo": {"bar": "abc"}}, env_prefix="PREFIX")
+    foo_config = await di.nject(FooConfig, source=cfg)
     assert foo_config == FooConfig(bar="abc")

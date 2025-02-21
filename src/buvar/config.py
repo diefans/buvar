@@ -13,12 +13,6 @@ from . import di, util
 logger = structlog.get_logger()
 
 
-@attr.s(auto_attribs=True)
-class ConfigValue:
-    name: typing.Optional[str] = None
-    help: typing.Optional[str] = None
-
-
 class ConfigSource(dict):
     """Config dict, with loadable sections.
 

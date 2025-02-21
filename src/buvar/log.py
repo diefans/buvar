@@ -1,11 +1,11 @@
+import dataclasses as dc
 import functools
 import logging
 import logging.config
-from os import getpid
 import sys
 import typing
+from os import getpid
 
-import attr
 import structlog
 from structlog.processors import JSONRenderer
 
@@ -54,7 +54,7 @@ DEFAULT_LOGGING_LEVEL = logging.getLevelName(logging.WARNING)
 timestamper = structlog.processors.TimeStamper(fmt="ISO", utc=True)
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@dc.dataclass
 class LogConfig:
     tty: bool = sys.stdout.isatty()
     level: typing.Union[int, str] = logging.DEBUG
@@ -158,7 +158,6 @@ def setup_logging(**kwargs):
 
 
 class ExtractLogExtra:  # noqa: R0903
-
     """Extract log record attributes to structlog event_dict."""
 
     def __init__(self, *attrs):
@@ -177,7 +176,6 @@ class ExtractLogExtra:  # noqa: R0903
 
 
 class StdioToLog:
-
     """Delegate sys.stdout to a logger."""
 
     def __init__(self, logger, log_level=logging.INFO):

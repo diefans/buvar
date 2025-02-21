@@ -67,7 +67,7 @@ jobs:
           pytest tests
 
       - name: archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: buvar-${{ matrix.version }}-${{ matrix.platform }}
           retention-days: 1

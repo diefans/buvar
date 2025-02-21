@@ -1,7 +1,7 @@
 [tool]
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.43.21"
+version = "0.43.22"
 tag_format = "$version"
 bump_message = "release: $current_version → $new_version [skip-ci]"
 

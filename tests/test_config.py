@@ -318,10 +318,12 @@ async def test_config_subclass_abc(mocker):
 
 @pytest.mark.asyncio
 @pytest.mark.buvar_plugins("buvar.config")
-async def test_config_dataclass():
+async def test_config_dataclass(mocker):
     import dataclasses as dc
 
     from buvar import config, di
+
+    mocker.patch.dict(config.Config.__buvar_config_sections__, clear=True)
 
     @dc.dataclass
     class FooConfig(config.Config, section="foo"):

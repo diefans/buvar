@@ -25,7 +25,7 @@ in
     hello
     git --version
 
-    uv pip install -e ".[tests]" pdbpp
+    uv pip install -e ".[tests]" pdbpp cython
   '';
 
   # https://devenv.sh/tests/

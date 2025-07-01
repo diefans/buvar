@@ -116,7 +116,6 @@ def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
         target, path, fields, hints = stack.pop()
         while fields:
             field = fields.pop()
-            logger.debug("traverse field", field=field)
             field_path = path + (field.name,)
             field_type = hints[field.name]
             if has(field_type):
@@ -146,7 +145,6 @@ def create_env_config(cls, *env_prefix):
         cls, target=env_config, get_type_hints=get_type_hints
     ):
         env_name = "_".join(map(lambda x: x.upper(), env_prefix + path))
-        logger.debug("Read env", var=env_name)
         if env_name in os.environ:
             logger.debug("Overriding config by env", var=env_name)
             target[path[-1]] = os.environ[env_name]

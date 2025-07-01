@@ -129,3 +129,22 @@ def buvar_adapters_setup_contextvars():
     token = di.buvar_adapters.set(di.Adapters())
     yield
     di.buvar_adapters.reset(token)
+
+
+@pytest.fixture
+def reset_buvar_context():
+    from buvar import components, context
+
+    token = context.buvar_context.set(components.Components())
+    yield
+    context.buvar_context.reset(token)
+
+
+@pytest.fixture(autouse=True)
+def reset_config_sections(mocker):
+    from buvar import config
+    old = config.Config.__buvar_config_sections__ 
+    config.Config.__buvar_config_sections__ = {}
+    yield
+    config.Config.__buvar_config_sections__ = old
+

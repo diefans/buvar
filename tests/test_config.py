@@ -332,3 +332,21 @@ async def test_config_dataclass(mocker):
     cfg = config.ConfigSource({"foo": {"bar": "abc"}}, env_prefix="PREFIX")
     foo_config = await di.nject(FooConfig, source=cfg)
     assert foo_config == FooConfig(bar="abc")
+
+
+@pytest.mark.asyncio
+@pytest.mark.buvar_plugins("buvar.config")
+async def test_dataclass_config_from_env(mocker):
+    from dataclasses import dataclass
+    from os import environ
+
+    from buvar import di, config
+
+    @dataclass
+    class Foo(config.Config, section="foo"):
+        bar: str
+
+    mocker.patch.dict(environ, {"FOO_BAR": "some string"})
+
+    foo_config = await di.nject(Foo)
+    assert foo_config == Foo("some string")

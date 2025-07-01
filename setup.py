@@ -38,7 +38,7 @@ extras_require = {
     "tests": [
         "pytest>=4.6",
         "pytest-cov>=2.7",
-        "pytest-asyncio>=0.11.0",
+        "pytest-asyncio<1",
         "pytest-benchmark>=3.2.2",
         "mock>=3.0",
         "pytest-mock>=1.10",

@@ -1,31 +1,23 @@
-{ pkgs, lib, config, inputs, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  inputs,
+  ...
+}:
 let
   pkgs-unstable = import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
 in
 {
-  # https://devenv.sh/basics/
-  env.GREET = "devenv";
-
-  # https://devenv.sh/packages/
   packages = with pkgs-unstable; [
     git
-    # pkgs.nodejs
-    # pkgs.nodePackages.npm
-    pyright
-    ruff
-    # XXX uses python 3.11 and wrong cattrs
-    # pkgs.ruff-lsp
-    # pkgs.nodePackages.cdk8s-cli
+    # pyright
+    # ruff
   ];
 
-  # https://devenv.sh/scripts/
-  scripts.hello.exec = "echo hello from $GREET";
-
   enterShell = ''
-    hello
-    git --version
-
-    uv pip install -e ".[tests]" pdbpp
+    uv sync --dev
+    git status
   '';
 
   # https://devenv.sh/tests/
@@ -39,25 +31,15 @@ in
   # https://devenv.sh/languages/
   languages.python = {
     enable = true;
-    version = "3.10";
-    uv.enable = true;
+    version = "3.11";
+    uv = {
+      enable = true;
+      sync.enable = true;
+      # sync.extras = [ "dev" ];
+    };
     venv = {
       enable = true;
       # requirements = ./requirements.txt;
     };
   };
-  # languages.javascript = {
-  #  enable = true; # adds node LTS & npm
-  #  corepack.enable = true;
-  #  npm.install.enable = true;
-  #  # package = pkgs.nodejs-18_x; # <- if you need to override npm version
-  # };
-
-  # https://devenv.sh/pre-commit-hooks/
-  # pre-commit.hooks.shellcheck.enable = true;
-
-  # https://devenv.sh/processes/
-  # processes.ping.exec = "ping example.com";
-
-  # See full reference at https://devenv.sh/reference/options/
 }

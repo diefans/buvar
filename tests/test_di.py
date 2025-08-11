@@ -10,6 +10,7 @@ def adapters():
 
 def test_adapters_register_generic_factory(adapters):
     import typing
+
     from buvar import di
 
     FooType = typing.TypeVar("FooType", bound="Foo")
@@ -30,8 +31,7 @@ def test_adapters_register_class(adapters):
     from buvar import di
 
     class Bar:
-        def __init__(self):
-            ...
+        def __init__(self): ...
 
     adapters.register(Bar)
     assert next(iter(adapters[di.GenericAdapter][Bar])).implementation == Bar
@@ -52,8 +52,7 @@ def test_adapters_register_classmethod(adapters):
 def test_adapters_register_func(adapters):
     from buvar import di
 
-    class Bar:
-        ...
+    class Bar: ...
 
     def foo_adapter() -> Bar:
         return Bar()
@@ -65,7 +64,6 @@ def test_adapters_register_func(adapters):
 @pytest.mark.asyncio
 async def test_nject_generic_factory(adapters):
     import typing
-    from buvar import di
 
     FooType = typing.TypeVar("FooType", bound="Foo")
 
@@ -98,8 +96,7 @@ async def test_nject_classmethod(adapters):
 
 @pytest.mark.asyncio
 async def test_nject_class(adapters):
-    class Foo:
-        ...
+    class Foo: ...
 
     adapters.register(Foo)
 
@@ -109,11 +106,9 @@ async def test_nject_class(adapters):
 
 @pytest.mark.asyncio
 async def test_nject_class_base(adapters):
-    class Foo:
-        ...
+    class Foo: ...
 
-    class Bar(Foo):
-        ...
+    class Bar(Foo): ...
 
     adapters.register(Bar)
 
@@ -123,8 +118,7 @@ async def test_nject_class_base(adapters):
 
 @pytest.mark.asyncio
 async def test_nject_func(adapters):
-    class Foo:
-        ...
+    class Foo: ...
 
     async def adapt_foo() -> Foo:
         return Foo()
@@ -139,8 +133,7 @@ async def test_nject_func(adapters):
 async def test_nject_optional(adapters):
     import typing
 
-    class Bar:
-        ...
+    class Bar: ...
 
     class Foo:
         def __init__(self, *args, **kwargs):
@@ -157,7 +150,9 @@ async def test_nject_optional(adapters):
 
 
 @pytest.mark.benchmark(group="nject")
-def test_di_nject(event_loop, benchmark, adapters):
+def test_di_nject(benchmark, adapters):
+    import asyncio
+
     from buvar import context
 
     class Foo(dict):
@@ -203,13 +198,15 @@ def test_di_nject(event_loop, benchmark, adapters):
         assert bum == {"bum": True}
 
     def bench():
-        event_loop.run_until_complete(test())
+        asyncio.get_event_loop().run_until_complete(test())
 
     benchmark(bench)
 
 
 @pytest.mark.benchmark(group="nject_2")
-def test_nject_2(event_loop, benchmark, adapters):
+def test_nject_2(benchmark, adapters):
+    import asyncio
+
     class Bar:
         pass
 
@@ -236,7 +233,7 @@ def test_nject_2(event_loop, benchmark, adapters):
         assert foo.bar is bar
 
     def bench():
-        event_loop.run_until_complete(test())
+        asyncio.get_event_loop().run_until_complete(test())
 
     benchmark(bench)
 
@@ -245,11 +242,9 @@ def test_nject_2(event_loop, benchmark, adapters):
 async def test_abc_meta_derived(adapters):
     import abc
 
-    class Foo(abc.ABC):
-        ...
+    class Foo(abc.ABC): ...
 
-    class Bar(Foo):
-        ...
+    class Bar(Foo): ...
 
     adapters.register(Bar)
 
@@ -272,8 +267,7 @@ async def test_adapter_string_return(adapters):
 
 @pytest.mark.asyncio
 async def test_nject_deep_dependency_by_arg(adapters):
-    class Foo:
-        ...
+    class Foo: ...
 
     class Bar:
         def __init__(self, foo):

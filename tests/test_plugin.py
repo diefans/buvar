@@ -1,49 +1,54 @@
 import pytest
 
 
-def test_run(event_loop):
-    from buvar import plugin, context, ComponentLookupError
+def test_run():
+    from buvar import ComponentLookupError, context, plugin
 
-    result = plugin.stage("tests.foo_plugin", loop=event_loop)
+    result = plugin.stage("tests.foo_plugin")
     assert result == [{"foo": "foo"}, None, None]
     with pytest.raises(ComponentLookupError) as e:
         context.get("foo_plugin")
     assert e.value.args[1] == "foo_plugin"
 
 
-def test_run_task_factory(event_loop):
+def test_run_task_factory():
     import asyncio
-    from buvar import plugin, context
+
+    from buvar import context, plugin
 
     async def prepare():
+        context_size = len(context.current_context().stack)
+
         async def task():
             async def _sub1():
+                assert len(context.current_context().stack) == context_size + 2
                 context.add("foo")
                 await asyncio.sleep(0)
                 assert "foo" == context.get(str)
 
             async def _sub2():
+                assert len(context.current_context().stack) == context_size + 2
                 context.add("bar")
                 await asyncio.sleep(0)
                 assert "bar" == context.get(str)
 
-            await asyncio.gather(
-                asyncio.create_task(_sub1()), asyncio.create_task(_sub2())
-            )
+            task_1 = asyncio.create_task(_sub1())
+            task_2 = asyncio.create_task(_sub2())
+            await asyncio.gather(task_1, task_2)
 
         yield task()
 
-    result = plugin.stage(prepare, loop=event_loop)
+    result = plugin.stage(prepare)
 
 
-def test_run_relative_out_of_packages(event_loop):
+def test_run_relative_out_of_packages():
     from buvar import plugin
 
     with pytest.raises(ImportError):
-        plugin.stage("tests.baz_plugin", loop=event_loop)
+        plugin.stage("tests.baz_plugin")
 
 
-def test_run_with_loader(event_loop, mocker):
+def test_run_with_loader():
     from buvar import plugin
 
     async def test_plugin(load: plugin.Loader):
@@ -52,7 +57,7 @@ def test_run_with_loader(event_loop, mocker):
     plugin.stage(test_plugin)
 
 
-def test_run_load_twice(event_loop):
+def test_run_load_twice():
     from buvar import plugin
 
     loaded = {}
@@ -65,7 +70,7 @@ def test_run_load_twice(event_loop):
     plugin.stage(test_plugin)
 
 
-def test_run_iterable(event_loop):
+def test_run_iterable():
     from buvar import plugin
 
     state = {}
@@ -79,11 +84,11 @@ def test_run_iterable(event_loop):
 
         return [a(), b()]
 
-    plugin.stage(iter_plugin, loop=event_loop)
+    plugin.stage(iter_plugin)
     assert state == {"a": True, "b": True}
 
 
-def test_plugin_error(event_loop):
+def test_plugin_error():
     from buvar import plugin
 
     state = {}
@@ -97,13 +102,14 @@ def test_plugin_error(event_loop):
         raise Exception("Plugin is broken")
 
     with pytest.raises(Exception) as e:
-        plugin.stage(broken_plugin, loop=event_loop)
+        plugin.stage(broken_plugin)
         assert e.error.args == ("Plugin is broken",)
     assert state == {"teardown_task": True}
 
 
-def test_cancel_staging(event_loop):
+def test_cancel_staging():
     import asyncio
+
     from buvar import plugin
 
     state = {}
@@ -119,18 +125,18 @@ def test_cancel_staging(event_loop):
 
         yield server()
 
-    plugin.stage(server_plugin, loop=event_loop)
+    plugin.stage(server_plugin)
     assert state == {"cancelled": True}
 
 
-def test_resolve_plugin_not_async(event_loop):
+def test_resolve_plugin_not_async():
     from buvar import plugin
 
     with pytest.raises(ValueError):
         plugin.resolve_plugin_func(lambda: None)
 
 
-def test_subtask(event_loop):
+def test_subtask():
     from buvar import plugin
 
     state = {}
@@ -148,13 +154,14 @@ def test_subtask(event_loop):
 
         yield task()
 
-    plugin.stage(test_plugin, loop=event_loop)
+    plugin.stage(test_plugin)
 
     assert state == {"plugin": True, "task": True, "teardown_task": True}
 
 
-def test_broken_task(event_loop):
+def test_broken_task():
     import asyncio
+
     from buvar import plugin
 
     state = {}
@@ -183,14 +190,15 @@ def test_broken_task(event_loop):
         yield broken_task()
 
     with pytest.raises(Exception) as e:
-        plugin.stage(broken_plugin, loop=event_loop)
+        plugin.stage(broken_plugin)
         assert e.error.args == ("Task is broken",)
     assert state == {"teardown_task": True}
 
 
 def test_stage_components():
     import asyncio
-    from buvar import plugin, components, context
+
+    from buvar import components, context, plugin
 
     async def test_plugin(load: plugin.Loader):
         assert context.get(str) == "foo"

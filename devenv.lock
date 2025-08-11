@@ -3,11 +3,10 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1715593316,
+        "lastModified": 1754772503,
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "725c90407ef53cc2a1b53701c6d2d0745cf2484f",
-        "treeHash": "7ac06cbb236d43b776abbb0a7b8c48c9175d6012",
+        "rev": "3020356e20ca2856b692756564b07095319d9553",
         "type": "github"
       },
       "original": {
@@ -20,10 +19,10 @@
     "flake-compat": {
       "flake": false,
       "locked": {
-        "lastModified": 1733328505,
+        "lastModified": 1747046372,
         "owner": "edolstra",
         "repo": "flake-compat",
-        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "rev": "9100a0f413b0c601e0533d1d94ffd501ce2e7885",
         "type": "github"
       },
       "original": {
@@ -35,34 +34,16 @@
     "flake-compat_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1696426674,
+        "lastModified": 1747046372,
         "owner": "edolstra",
         "repo": "flake-compat",
-        "rev": "0f9255e01c2351cc7d116c072cb317785dd33b33",
-        "treeHash": "2addb7b71a20a25ea74feeaf5c2f6a6b30898ecb",
+        "rev": "9100a0f413b0c601e0533d1d94ffd501ce2e7885",
         "type": "github"
       },
       "original": {
         "owner": "edolstra",
         "repo": "flake-compat",
         "type": "github"
-      }
-    },
-    "flake-utils": {
-      "inputs": {
-        "systems": "systems"
-      },
-      "locked": {
-        "lastModified": 1710146030,
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "b1d9ab70662946ef0850d488da1c9019f3a9752a",
-        "treeHash": "bd263f021e345cb4a39d80c126ab650bebc3c10c",
-        "type": "github"
-      },
-      "original": {
-        "id": "flake-utils",
-        "type": "indirect"
       }
     },
     "git-hooks": {
@@ -74,10 +55,10 @@
         ]
       },
       "locked": {
-        "lastModified": 1737465171,
+        "lastModified": 1754416808,
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "9364dc02281ce2d37a1f55b6e51f7c0f65a75f17",
+        "rev": "9c52372878df6911f9afc1e2a1391f55e4dfc864",
         "type": "github"
       },
       "original": {
@@ -108,11 +89,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1713361204,
+        "lastModified": 1754299112,
         "owner": "cachix",
         "repo": "devenv-nixpkgs",
-        "rev": "285676e87ad9f0ca23d8714a6ab61e7e027020c6",
-        "treeHash": "50354b35a3e0277d4a83a0a88fa0b0866b5f392f",
+        "rev": "16c21c9f5c6fb978466e91182a248dd8ca1112ac",
         "type": "github"
       },
       "original": {
@@ -125,17 +105,15 @@
     "nixpkgs-python": {
       "inputs": {
         "flake-compat": "flake-compat_2",
-        "flake-utils": "flake-utils",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1713539989,
+        "lastModified": 1754518819,
         "owner": "cachix",
         "repo": "nixpkgs-python",
-        "rev": "462946481a3f4497c90103c92b5e7408e3c59f4f",
-        "treeHash": "40324a2ba4241b8c4218bac5fc72e73460fd5821",
+        "rev": "4253cbbd2b36ec8021962726c95ebdf874fd26af",
         "type": "github"
       },
       "original": {
@@ -146,10 +124,10 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1733097829,
+        "lastModified": 1754800730,
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "2c15aa59df0017ca140d9ba302412298ab4bf22a",
+        "rev": "641d909c4a7538f1539da9240dedb1755c907e40",
         "type": "github"
       },
       "original": {
@@ -169,21 +147,6 @@
         "pre-commit-hooks": [
           "git-hooks"
         ]
-      }
-    },
-    "systems": {
-      "locked": {
-        "lastModified": 1681028828,
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
-        "treeHash": "cce81f2a0f0743b2eb61bc2eb6c7adbe2f2c6beb",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
       }
     }
   },

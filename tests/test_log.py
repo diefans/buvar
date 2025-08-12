@@ -21,10 +21,12 @@ def test_stringify_dict_keys(obj, result):
 
 
 def _test_simple_structlog_json(capsys, mocker, caplog):
-    from buvar import log
-    import logging
-    import structlog
     import json
+    import logging
+
+    import structlog
+
+    from buvar import log
 
     mocker.patch(
         "structlog.processors._make_stamper", return_value=lambda event_dict: event_dict

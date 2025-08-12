@@ -28,7 +28,9 @@ try:
     json_dumps_inner = functools.partial(
         orjson.dumps, option=orjson.OPT_NAIVE_UTC | orjson.OPT_NON_STR_KEYS
     )
-    json_dumps = lambda *arg, **kwargs: json_dumps_inner(*arg, **kwargs).decode("utf-8")
+
+    def json_dumps(*arg, **kwargs):
+        return json_dumps_inner(*arg, **kwargs).decode("utf-8")
 except ImportError:
     import json
 

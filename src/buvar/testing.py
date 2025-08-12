@@ -48,10 +48,10 @@ def buvar_context(buvar_config_source):
 
 
 @pytest.fixture
-def buvar_stage(event_loop, buvar_context):
+def buvar_stage(buvar_context):
     from buvar import plugin
 
-    stage = plugin.Stage(loop=event_loop, components=buvar_context)
+    stage = plugin.Stage(components=buvar_context)
     return stage
 
 
@@ -143,8 +143,8 @@ def reset_buvar_context():
 @pytest.fixture(autouse=True)
 def reset_config_sections(mocker):
     from buvar import config
-    old = config.Config.__buvar_config_sections__ 
+
+    old = config.Config.__buvar_config_sections__
     config.Config.__buvar_config_sections__ = {}
     yield
     config.Config.__buvar_config_sections__ = old
-

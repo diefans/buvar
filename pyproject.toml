@@ -1,4 +1,58 @@
-[tool]
+[build-system]
+requires = ["setuptools", "cython"]
+
+[project]
+name = "buvar"
+requires-python = ">= 3.11"
+version = "0.43.23"
+description = "Asyncio plugins, components, dependency injection and configs"
+readme = "README.rst"
+dependencies = [
+    "attrs",
+    "cattrs",
+    "structlog>=20.1.0",
+    "toml>=0.10",
+    "typing_inspect>=0.4.0",
+    "cached_property",
+    "uritools",
+]
+
+[project.entry-points.pytest11]
+buvar = "buvar.testing"
+
+[dependency-groups]
+dev = [
+    "commitizen",
+    "pre-commit",
+    "pdbpp",
+    "pytest>=4.6",
+    "pytest-cov>=2.7",
+    "pytest-asyncio>=1.0.0",
+    "pytest-benchmark>=3.2.2",
+    "mock>=3.0",
+    "pytest-mock>=1.10",
+    "pytest-watch>=4.2",
+    "pytest-randomly>=3.1",
+    "pytest-anything",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py311"
+lint.extend-select = [
+    "I",     # sorting
+    "UP035", # deprected imports (such as typing.List)
+]
+[tool.setuptools]
+ext-modules = [
+    { name = "buvar.di.c_di", sources = [
+        "src/buvar/di/c_di.pyx",
+    ] },
+    { name = "buvar.components.c_components", sources = [
+        "src/buvar/components/c_components.pyx",
+    ] },
+]
+
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.43.25"

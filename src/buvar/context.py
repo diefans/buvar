@@ -6,6 +6,8 @@ import contextvars
 import functools
 import sys
 
+import structlog
+
 from . import components
 
 buvar_context: contextvars.ContextVar[components.Components] = contextvars.ContextVar(
@@ -14,6 +16,8 @@ buvar_context: contextvars.ContextVar[components.Components] = contextvars.Conte
 
 # we provide a globally available context
 buvar_context.set(components.Components())
+
+log = structlog.get_logger()
 
 
 class StackingTaskFactory:
@@ -35,21 +39,22 @@ class StackingTaskFactory:
                 return task
             finally:
                 buvar_context.reset(token)
+
     else:
         # INFO: Task() accepts context
         def __call__(self, loop, coro, context=None):
-            component_context = current_context().push()
-            token = buvar_context.set(component_context)
-            # with child():
+            def _push_context():
+                buvar_context.set(push())
+
+            task_ctx = contextvars.copy_context()
+            task_ctx.run(_push_context)
+
             task = (
                 self.parent_factory
                 if self.parent_factory is not None
                 else asyncio.tasks.Task
-            )(loop=loop, coro=coro, context=context)
-            try:
-                return task
-            finally:
-                buvar_context.reset(token)
+            )(loop=loop, coro=coro, context=task_ctx)
+            return task
 
     @classmethod
     def set(cls, *, loop=None):
@@ -58,6 +63,7 @@ class StackingTaskFactory:
 
         factory = cls(parent_factory=loop.get_task_factory())
         loop.set_task_factory(factory)
+
         return factory
 
     def reset(self, *, loop=None):

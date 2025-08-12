@@ -1,8 +1,8 @@
-import pytest
 
 
 def test_forked_parent(mocker):
     import os
+
     from buvar import fork
 
     mocker.patch("os.getpid", return_value=1)

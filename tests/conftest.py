@@ -1,4 +1,22 @@
+import asyncio
+
 import pytest
+
+try:
+    import uvloop
+
+    @pytest.fixture(
+        scope="function",
+        params=("uvloop", "asyncio"),
+    )
+    def event_loop_policy(request):
+        return {
+            "uvloop": uvloop.EventLoopPolicy(),
+            "asyncio": asyncio.DefaultEventLoopPolicy(),
+        }[request.param]
+
+except ImportError:
+    pass
 
 
 @pytest.fixture
@@ -29,12 +47,12 @@ def implementation(request, mocker):
     from buvar import di
 
     if request.param == "python":
-        from buvar.di import py_di as di_impl
         from buvar.components import py_components as cmps_impl
+        from buvar.di import py_di as di_impl
     else:
         try:
-            from buvar.di import c_di as di_impl
             from buvar.components import c_components as cmps_impl
+            from buvar.di import c_di as di_impl
         except ImportError:
             pytest.skip(f"C extension {request.param} not available.")
             return
@@ -67,7 +85,7 @@ def adapters(implementation):
 
 @pytest.fixture(autouse=True)
 def components(implementation):
-    from buvar import context, Components
+    from buvar import Components, context
 
     components = Components()
     assert context.current_context()

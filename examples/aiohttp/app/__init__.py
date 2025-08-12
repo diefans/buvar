@@ -2,9 +2,9 @@ import typing
 
 import aiohttp.web
 import attr
+import orjson
 
 from buvar import context, di, plugin
-import orjson
 
 routes = aiohttp.web.RouteTableDef()
 

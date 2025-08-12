@@ -4,8 +4,8 @@ import sys
 import typing
 
 import attr
-import toml
 import structlog
+import toml
 
 from buvar import components, config, log, plugin
 

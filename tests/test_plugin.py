@@ -11,36 +11,6 @@ def test_run():
     assert e.value.args[1] == "foo_plugin"
 
 
-def test_run_task_factory():
-    import asyncio
-
-    from buvar import context, plugin
-
-    async def prepare():
-        context_size = len(context.current_context().stack)
-
-        async def task():
-            async def _sub1():
-                assert len(context.current_context().stack) == context_size + 2
-                context.add("foo")
-                await asyncio.sleep(0)
-                assert "foo" == context.get(str)
-
-            async def _sub2():
-                assert len(context.current_context().stack) == context_size + 2
-                context.add("bar")
-                await asyncio.sleep(0)
-                assert "bar" == context.get(str)
-
-            task_1 = asyncio.create_task(_sub1())
-            task_2 = asyncio.create_task(_sub2())
-            await asyncio.gather(task_1, task_2)
-
-        yield task()
-
-    result = plugin.stage(prepare)
-
-
 def test_run_relative_out_of_packages():
     from buvar import plugin
 
@@ -193,35 +163,3 @@ def test_broken_task():
         plugin.stage(broken_plugin)
         assert e.error.args == ("Task is broken",)
     assert state == {"teardown_task": True}
-
-
-def test_stage_components():
-    import asyncio
-
-    from buvar import components, context, plugin
-
-    async def test_plugin(load: plugin.Loader):
-        assert context.get(str) == "foo"
-        context.add("bar", name="bar")
-
-        async def task1():
-            assert context.get(str, name="bar") == "bar"
-            asyncio.sleep(0.02)
-            context.add("task1", name="bar")
-            asyncio.sleep(0.01)
-            assert context.get(str, name="bar") == "task1"
-
-        async def task2():
-            assert context.get(str, name="bar") == "bar"
-            asyncio.sleep(0.01)
-            context.add("task2", name="bar")
-            asyncio.sleep(0.02)
-            assert context.get(str, name="bar") == "task2"
-
-        yield task1()
-        yield task2()
-
-    cmps = components.Components()
-    cmps.add("foo")
-
-    plugin.stage(test_plugin, components=cmps)

@@ -10,8 +10,8 @@ async def test_bg_error(log_output, Anything):
     #   File "/home/olli/.pyenv/versions/3.7.4/lib/python3.7/logging/__init__.py", line 1028, in emit
     #     stream.write(msg + self.terminator)
     # ValueError: I/O operation on closed file.
-    from buvar.plugins import bg
     from buvar import context
+    from buvar.plugins import bg
 
     async def make_error():
         raise Exception("foobar")
@@ -32,8 +32,9 @@ async def test_bg_error(log_output, Anything):
 @pytest.mark.buvar_plugins("buvar.plugins.bg")
 async def test_bg_semaphore():
     import asyncio
-    from buvar.plugins import bg
+
     from buvar import context
+    from buvar.plugins import bg
 
     state = {"counter": 0, "sync": []}
 

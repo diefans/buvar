@@ -5,6 +5,7 @@ import contextlib
 import contextvars
 import functools
 import sys
+
 import structlog
 
 from . import components
@@ -15,6 +16,8 @@ buvar_context: contextvars.ContextVar[components.Components] = contextvars.Conte
 
 # we provide a globally available context
 buvar_context.set(components.Components())
+
+log = structlog.get_logger()
 
 
 class StackingTaskFactory:
@@ -60,6 +63,7 @@ class StackingTaskFactory:
 
         factory = cls(parent_factory=loop.get_task_factory())
         loop.set_task_factory(factory)
+
         return factory
 
     def reset(self, *, loop=None):

@@ -1,5 +1,6 @@
 from buvar import components, context
-from .exc import missing, ResolveError
+
+from .exc import ResolveError, missing
 
 
 def _get_name_or_default(cmps, target, name=None):

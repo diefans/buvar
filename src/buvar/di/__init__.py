@@ -39,7 +39,8 @@ import typing_inspect as ti
 
 from buvar import util
 
-from .exc import ResolveError, missing
+from .exc import ResolveError as ResolveError
+from .exc import missing
 
 try:
     # gains over 100% speed up

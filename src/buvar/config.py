@@ -84,7 +84,9 @@ class Config:
         cls.__buvar_config_sections__[section] = cls
 
     @classmethod
-    async def adapt(cls: typing.Type[ConfigType], source: ConfigSource) -> ConfigType:
+    async def adapt(
+        cls: typing.Type[ConfigType], source: ConfigSource = ConfigSource()
+    ) -> ConfigType:
         config = source.load(cls, cls.__buvar_config_section__)
         return config
 

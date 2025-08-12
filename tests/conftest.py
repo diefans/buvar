@@ -1,4 +1,22 @@
+import asyncio
+
 import pytest
+
+try:
+    import uvloop
+
+    @pytest.fixture(
+        scope="function",
+        params=("uvloop", "asyncio"),
+    )
+    def event_loop_policy(request):
+        return {
+            "uvloop": uvloop.EventLoopPolicy(),
+            "asyncio": asyncio.DefaultEventLoopPolicy(),
+        }[request.param]
+
+except ImportError:
+    pass
 
 
 @pytest.fixture

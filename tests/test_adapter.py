@@ -83,7 +83,6 @@ def test_adapters_lookup_benchmark(adapters, Foo, Bar, benchmark):
 
 @pytest.mark.asyncio
 async def test_create_adapter_inheritance(adapters):
-    import typing as t
 
     class Baz:
         ...

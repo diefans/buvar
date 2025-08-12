@@ -1,6 +1,7 @@
 import aiohttp.web
-from buvar import fork, plugin, di, context
 from buvar_aiohttp import AioHttpConfig
+
+from buvar import context, di, fork, plugin
 
 
 async def hello(request):

@@ -5,8 +5,8 @@ import queue
 import signal
 import socket
 import typing as t
-import structlog
 
+import structlog
 import uritools
 
 from buvar import plugin

@@ -340,7 +340,7 @@ async def test_dataclass_config_from_env(mocker):
     from dataclasses import dataclass
     from os import environ
 
-    from buvar import di, config
+    from buvar import config, di
 
     @dataclass
     class Foo(config.Config, section="foo"):

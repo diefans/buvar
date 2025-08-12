@@ -27,7 +27,7 @@ dev = [
     "pdbpp",
     "pytest>=4.6",
     "pytest-cov>=2.7",
-    "pytest-asyncio>1.0.0",
+    "pytest-asyncio>=1.0.0",
     "pytest-benchmark>=3.2.2",
     "mock>=3.0",
     "pytest-mock>=1.10",
@@ -35,7 +35,6 @@ dev = [
     "pytest-randomly>=3.1",
     "pytest-anything",
     "ruff",
-    "uv",
 ]
 
 [tool.ruff]

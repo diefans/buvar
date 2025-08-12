@@ -3,6 +3,7 @@ import pytest
 
 def test_tcp_socket():
     import socket
+
     from buvar import fork
 
     s = fork.Socket("tcp://:12345")
@@ -13,6 +14,7 @@ def test_tcp_socket():
 
 def test_unix_socket():
     import socket
+
     from buvar import fork
 
     s = fork.Socket("unix:///tmp/foo.sock")

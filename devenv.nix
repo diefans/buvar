@@ -11,8 +11,6 @@ in
 {
   packages = with pkgs-unstable; [
     git
-    # pyright
-    # ruff
   ];
 
   enterShell = ''
@@ -31,15 +29,15 @@ in
   # https://devenv.sh/languages/
   languages.python = {
     enable = true;
-    version = "3.11";
+    version = "3.13";
     uv = {
       enable = true;
       sync.enable = true;
+      # FIXME: this is not working as expected
       # sync.extras = [ "dev" ];
     };
     venv = {
       enable = true;
-      # requirements = ./requirements.txt;
     };
   };
 }

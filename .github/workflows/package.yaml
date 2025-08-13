@@ -72,8 +72,8 @@ jobs:
         run: |
           export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
           uv build --wheel
-          auditwheel repair "./dist/${PROJECT}*${{ matrix.version }}*.whl" \
-            --plat ${{ matrix.platform }} -w ./dist
+          ls -la ./dist
+          auditwheel repair ./dist/*.whl --plat ${{ matrix.platform }}
 
       # - name: build wheels
       #   run: |
@@ -94,7 +94,7 @@ jobs:
           name: buvar-${{ matrix.version }}-${{ matrix.platform }}
           retention-days: 1
           path: |
-            ./dist/${{ env.PROJECT }}-*${{ matrix.version }}*.whl
+            ./wheelhouse/${{ env.PROJECT }}-*${{ matrix.version }}*.whl
 
   publish_sdist:
     needs:

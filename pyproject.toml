@@ -55,7 +55,7 @@ ext-modules = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.44.0"
+version = "0.44.1"
 tag_format = "$version"
 bump_message = "release: $current_version → $new_version [skip-ci]"
 

@@ -56,6 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64:latest
+
+    env:
+      PATH: "/opt/python/${{ matrix.version }}/bin:${PATH}"
+
     steps:
       - uses: actions/checkout@v4
         with:

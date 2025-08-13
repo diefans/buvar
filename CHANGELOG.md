@@ -1,3 +1,9 @@
+## 0.44.0 (2025-08-13)
+
+### Feat
+
+- **no_task_factory**: we do not use asyncio task factory
+
 ## 0.43.25 (2025-07-01)
 
 ### Fix

@@ -1,3 +1,9 @@
+## 0.44.3 (2025-08-13)
+
+### Fix
+
+- **packaging**: select python path
+
 ## 0.44.2 (2025-08-13)
 
 ### Fix

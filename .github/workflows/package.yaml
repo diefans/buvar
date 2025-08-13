@@ -72,7 +72,7 @@ jobs:
         run: |
           export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
           uv build --wheel
-          auditwheel repair "./wheels/${PROJECT}*${{ matrix.version }}*.whl" \
+          auditwheel repair "./dist/${PROJECT}*${{ matrix.version }}*.whl" \
             --plat ${{ matrix.platform }} -w ./dist
 
       # - name: build wheels

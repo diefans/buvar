@@ -1,5 +1,9 @@
 name: "Build and Tests"
 
+env:
+  # renovate: datasource=github-tags depName=uv lookupName=astral-sh/uv
+  UV_VERSION: 0.7.13
+
 on:
   push:
     branches:
@@ -38,4 +42,4 @@ jobs:
 
       - run: uv sync --dev --frozen
       - run: uv run ruff check
-      - run: uv run pytest --cov bm.ucm
+      - run: uv run pytest --cov buvar

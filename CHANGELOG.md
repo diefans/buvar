@@ -1,3 +1,9 @@
+## 0.44.8 (2025-08-15)
+
+### Fix
+
+- **dotted_name**: it must be something if not a string
+
 ## 0.44.7 (2025-08-13)
 
 ### Fix

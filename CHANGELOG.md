@@ -1,3 +1,9 @@
+## 0.44.9 (2025-08-15)
+
+### Fix
+
+- **pytest-asyncio**: make stage fixture async
+
 ## 0.44.8 (2025-08-15)
 
 ### Fix

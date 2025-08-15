@@ -48,7 +48,13 @@ def buvar_context(buvar_config_source):
 
 
 @pytest.fixture
-def buvar_stage(buvar_context):
+async def buvar_stage_loop(): ...
+
+
+@pytest.fixture
+def buvar_stage(buvar_context, buvar_stage_loop):
+    # INFO: we need to depend on an async fixture, since Stage attaches to asyncio.get_event_loop()
+    # pytest-asyncio would otherwise use another loop for the specific test
     from buvar import plugin
 
     stage = plugin.Stage(components=buvar_context)

@@ -52,6 +52,8 @@ class ConfigSource(dict):
         values = util.merge_dict(values, env_config)
         # merge environment
 
+        # FIXME: use pydantic only
+        # this will sacrifice pure dataclass usage... hmmmm...
         config = relaxed_converter.structure(values, config_cls)
         return config
 

@@ -60,7 +60,7 @@ def resolve_dotted_name(
 ) -> t.Union[types.ModuleType, t.Callable]:
     """Use pkg_resources style dotted name to resolve a name."""
     # skip resolving for module and coroutine
-    if inspect.ismodule(name) or inspect.isroutine(name):
+    if inspect.ismodule(name) or inspect.isroutine(name) or not isinstance(name, str):
         return name
 
     # relative import

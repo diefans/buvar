@@ -12,7 +12,7 @@ env:
   UV_VERSION: 0.7.13
 
 jobs:
-  package_sdist:
+  build_sdist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,24 +43,28 @@ jobs:
           path: |
             ./dist/${{ env.PROJECT }}-*.tar.gz
 
-  package_wheels:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        platform:
-          - manylinux_2_28_x86_64
-        version:
-          - cp313-cp313
-          - cp312-cp312
-          - cp311-cp311
-    runs-on: ubuntu-latest
-    container:
-      image: quay.io/pypa/manylinux_2_28_x86_64:latest
+        # macos-13 is an intel runner, macos-14 is apple silicon
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-14]
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     platform:
+    #       - manylinux_2_28_x86_64
+    #     version:
+    #       - cp313-cp313
+    #       - cp312-cp312
+    #       - cp311-cp311
+    # runs-on: ubuntu-latest
+    # container:
+    #   image: quay.io/pypa/manylinux_2_28_x86_64:latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v5
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -69,12 +73,22 @@ jobs:
           version: ${{ env.UV_VERSION }}
 
       - name: Build wheels
-        run: |
-          export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
-          uv build --wheel
-          ls -la ./dist
-          auditwheel repair ./dist/*.whl --plat ${{ matrix.platform }}
-
+        uses: pypa/cibuildwheel@v3.1.4
+        # env:
+        #   CIBW_SOME_OPTION: value
+        #   ...
+        # with:
+        #   package-dir: .
+        #   output-dir: wheelhouse
+        #   config-file: "{package}/pyproject.toml"
+      #
+      # - name: Build wheels
+      #   run: |
+      #     export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
+      #     uv build --wheel
+      #     ls -la ./dist
+      #     auditwheel repair ./dist/*.whl --plat ${{ matrix.platform }}
+      #
       # - name: build wheels
       #   run: |
       #     export PATH="/opt/python/${{ matrix.version }}/bin:${PATH}"
@@ -91,15 +105,14 @@ jobs:
       - name: archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: buvar-${{ matrix.version }}-${{ matrix.platform }}
-          retention-days: 1
-          path: |
-            ./wheelhouse/${{ env.PROJECT }}-*${{ matrix.version }}*.whl
+          name: buvar-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+          # retention-days: 1
 
   publish_sdist:
     needs:
-      - package_sdist
-      - package_wheels
+      - build_sdist
+      - build_wheels
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -117,28 +130,20 @@ jobs:
 
   publish_wheels:
     needs:
-      - package_sdist
-      - package_wheels
+      - build_sdist
+      - build_wheels
     environment:
       name: pypi
-      url: https://pypi.org/p/${{ env.PROJECT }}  # Replace <package-name> with your PyPI project name
+      url: https://pypi.org/p/${{ env.PROJECT }}
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - manylinux_2_28_x86_64
-        version:
-          - cp313-cp313
-          - cp312-cp312
-          - cp311-cp311
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
-          name: buvar-${{ matrix.version }}-${{ matrix.platform }}
+          pattern: buvar-*
           path: dist
+          merge-multiple: true
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

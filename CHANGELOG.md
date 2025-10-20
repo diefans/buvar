@@ -1,3 +1,9 @@
+## 0.44.11 (2025-10-20)
+
+### Fix
+
+- **di**: use the same `ResolveError` in di's cython version (#34)
+
 ## 0.44.10 (2025-08-20)
 
 ### Fix

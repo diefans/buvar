@@ -2,13 +2,10 @@
 from ..components.c_components cimport Components
 from ..components import ComponentLookupError
 from buvar import context
+from ..di import ResolveError
 
 
 missing = object()
-
-
-cdef class ResolveError(Exception):
-    pass
 
 
 cdef _get_name_or_default(cmps: Components, target, name=None):

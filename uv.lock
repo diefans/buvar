@@ -22,7 +22,7 @@ wheels = [
 
 [[package]]
 name = "buvar"
-version = "0.44.9"
+version = "0.44.10"
 source = { editable = "." }
 dependencies = [
     { name = "attrs" },

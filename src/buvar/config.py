@@ -120,7 +120,7 @@ def traverse_attrs(cls, *, target=None, get_type_hints=typing.get_type_hints):
         target, path, fields, hints = stack.pop()
         while fields:
             field = fields.pop()
-            logger.debug("traverse field", field=field)
+            # logger.debug("traverse field", field=field)
             field_path = path + (field.name,)
             field_type = hints[field.name]
             if has(field_type):

@@ -147,7 +147,12 @@ class Adapter(metaclass=AdapterMeta):
                 )
 
 
-def evaluate(tp: t.Union[str, t.TypeVar, t.Type, t.ForwardRef], *, frame=None):
+def evaluate(
+    tp: t.Union[str, t.TypeVar, t.Type, t.ForwardRef],
+    *,
+    tp_globals=None,
+    tp_locals=None,
+):
     if isinstance(tp, str):
         tp = t.ForwardRef(tp)
 
@@ -155,20 +160,39 @@ def evaluate(tp: t.Union[str, t.TypeVar, t.Type, t.ForwardRef], *, frame=None):
         tp = ti.get_bound(tp)
 
     # TODO python versions
-    return t._eval_type(
-        tp,
-        frame.f_globals if frame else None,
-        frame.f_locals if frame else None,
-    )
+    return t._eval_type(tp, tp_globals, tp_locals)
 
 
 def evaluated_signature(func: t.Callable, frame=None):
     """Adjust annotations."""
     signature = inspect.Signature.from_callable(func)
+
+    # FIXME: if adapter is imported and added there, we cannot resolve the name
+    # if classmethod use bounded module for globals/locals
+    try:
+        _globals = frame.f_globals if frame else None
+        _locals = frame.f_locals if frame else None
+
+        return_annotation = evaluate(
+            signature.return_annotation, tp_globals=_globals, tp_locals=_locals
+        )
+    except NameError:
+        if inspect.ismethod(func):
+            mod = inspect.getmodule(func)
+            _globals = vars(mod)
+            _locals = _globals
+            return_annotation = evaluate(
+                signature.return_annotation, tp_globals=_globals, tp_locals=_locals
+            )
+        else:
+            raise
+
     signature = signature.replace(
         parameters=[
             p.replace(
-                annotation=evaluate(p.annotation, frame=frame),
+                annotation=evaluate(
+                    p.annotation, tp_globals=_globals, tp_locals=_locals
+                ),
                 default=p.default
                 # we change empty to missing for later convenience
                 if p.default is not inspect.Signature.empty
@@ -176,7 +200,7 @@ def evaluated_signature(func: t.Callable, frame=None):
             )
             for p in signature.parameters.values()
         ],
-        return_annotation=evaluate(signature.return_annotation, frame=frame),
+        return_annotation=return_annotation,
     )
     return signature
 

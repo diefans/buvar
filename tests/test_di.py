@@ -61,7 +61,6 @@ def test_adapters_register_func(adapters):
     assert next(iter(adapters[di.GenericAdapter][Bar])).implementation == foo_adapter
 
 
-@pytest.mark.asyncio
 async def test_nject_generic_factory(adapters):
     import typing
 
@@ -81,7 +80,6 @@ async def test_nject_generic_factory(adapters):
     assert isinstance(bar, Bar)
 
 
-@pytest.mark.asyncio
 async def test_nject_classmethod(adapters):
     class Foo:
         @classmethod
@@ -94,7 +92,6 @@ async def test_nject_classmethod(adapters):
     assert isinstance(foo, Foo)
 
 
-@pytest.mark.asyncio
 async def test_nject_class(adapters):
     class Foo: ...
 
@@ -104,7 +101,6 @@ async def test_nject_class(adapters):
     assert isinstance(foo, Foo)
 
 
-@pytest.mark.asyncio
 async def test_nject_class_base(adapters):
     class Foo: ...
 
@@ -116,7 +112,6 @@ async def test_nject_class_base(adapters):
     assert isinstance(foo, Foo)
 
 
-@pytest.mark.asyncio
 async def test_nject_func(adapters):
     class Foo: ...
 
@@ -129,7 +124,6 @@ async def test_nject_func(adapters):
     assert isinstance(foo, Foo)
 
 
-@pytest.mark.asyncio
 async def test_nject_optional(adapters):
     import typing
 
@@ -238,7 +232,6 @@ def test_nject_2(benchmark, adapters):
     benchmark(bench)
 
 
-@pytest.mark.asyncio
 async def test_abc_meta_derived(adapters):
     import abc
 
@@ -252,7 +245,6 @@ async def test_abc_meta_derived(adapters):
     assert isinstance(bar, Bar)
 
 
-@pytest.mark.asyncio
 async def test_adapter_string_return(adapters):
     class Foo:
         @classmethod
@@ -265,7 +257,6 @@ async def test_adapter_string_return(adapters):
     assert isinstance(foo, Foo)
 
 
-@pytest.mark.asyncio
 async def test_nject_deep_dependency_by_arg(adapters):
     class Foo: ...
 
@@ -289,3 +280,12 @@ async def test_nject_deep_dependency_by_arg(adapters):
 
     baz = await adapters.nject(Baz, foo=Foo())
     assert isinstance(baz, Baz)
+
+
+async def test_resolve_error(adapters):
+    from buvar import di
+
+    class Foo: ...
+
+    with pytest.raises(di.ResolveError):
+        await adapters.nject(Foo)

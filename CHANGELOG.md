@@ -1,3 +1,9 @@
+## 0.44.12 (2025-10-20)
+
+### Fix
+
+- **annotations**: use module of bound class if frame does not work (#35)
+
 ## 0.44.11 (2025-10-20)
 
 ### Fix

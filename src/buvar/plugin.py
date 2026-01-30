@@ -60,11 +60,9 @@ class Teardown:
         self.tasks.append(task)
 
     def __iter__(self):
-        """We teardown in the reverse order of registration."""
         return reversed(self.tasks)
 
     async def wait(self):
-        # XXX TODO distinct between corotines, task, and normal functions
         await asyncio.gather(*self)
 
 
@@ -217,13 +215,8 @@ class Stage:
         return _run_tasks()
 
     def run_teardown(self):
-        sl.info(
-            "Teardown",
-            tasks=self.teardown.tasks,
-            asyncio_tasks=asyncio.all_tasks(self.loop),
-        )
+        sl.info("Teardown", tasks=self.teardown.tasks)
         self.loop.run_until_complete(self.teardown.wait())
-        sl.info("Teardown complete", tasks=self.teardown.tasks)
 
     def run(self, *plugins):
         """Start the asyncio process by bootstrapping the root plugins.
@@ -272,7 +265,6 @@ async def run(tasks, *, evt_cancel=None, cancel_timeout: float = 60.0):
     unshielded_tasks = list(map(asyncio.create_task, tasks))
 
     fut_tasks = asyncio.gather(
-        # *unshielded_tasks,
         *map(asyncio.shield, unshielded_tasks),
         return_exceptions=True,
     )
@@ -283,6 +275,7 @@ async def run(tasks, *, evt_cancel=None, cancel_timeout: float = 60.0):
     # wait for exit
     await evt_cancel.wait()
 
+    sl.info("Shutdown", tasks=unshielded_tasks)
     # INFO: we wait for shutdown of tasks
     try:
         return await asyncio.wait_for(fut_tasks, cancel_timeout)
@@ -292,12 +285,17 @@ async def run(tasks, *, evt_cancel=None, cancel_timeout: float = 60.0):
         sl.warn("Cancelling ungraceful tasks", tasks=ungraceful_tasks)
         for task in ungraceful_tasks:
             task.cancel()
-            await task
-    finally:
+            # INFO: let the task finish/deal with cancel
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
         results = []
         for task in unshielded_tasks:
             try:
                 results.append(task.result())
+            # INFO: we return CancelledError like other exceptions
             except asyncio.CancelledError as ex:
                 results.append(ex)
             except Exception as ex:

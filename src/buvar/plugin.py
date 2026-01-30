@@ -115,7 +115,7 @@ class Signals:
         (signal.SIGABRT, "handle_abort"),
         (signal.SIGWINCH, "handle_winch"),
         (signal.SIGUSR1, "handle_usr1"),
-        (signal.SIGUSR2, "handle_usr1"),
+        (signal.SIGUSR2, "handle_usr2"),
     )
 
     def __init__(self, stage):
@@ -170,7 +170,14 @@ class Stage:
     4. the shared plugin preparation context
     """
 
-    def __init__(self, components=None, loop=None, signals: t.Type[Signals] = None):
+    def __init__(
+        self,
+        components=None,
+        loop=None,
+        signals: t.Type[Signals] | None = None,
+        cancel_timeout: float = 60.0,
+    ):
+        self.cancel_timeout = cancel_timeout
         self.loop = loop or asyncio.get_event_loop()
         self.context = (
             context.current_context()
@@ -200,14 +207,23 @@ class Stage:
         @context.run(self.context)
         def _run_tasks():
             return self.loop.run_until_complete(
-                run(tasks=self.loader.tasks, evt_cancel=self.cancel)
+                run(
+                    tasks=self.loader.tasks,
+                    evt_cancel=self.cancel,
+                    cancel_timeout=self.cancel_timeout,
+                )
             )
 
         return _run_tasks()
 
     def run_teardown(self):
-        sl.info("Teardown", tasks=self.teardown.tasks)
+        sl.info(
+            "Teardown",
+            tasks=self.teardown.tasks,
+            asyncio_tasks=asyncio.all_tasks(self.loop),
+        )
         self.loop.run_until_complete(self.teardown.wait())
+        sl.info("Teardown complete", tasks=self.teardown.tasks)
 
     def run(self, *plugins):
         """Start the asyncio process by bootstrapping the root plugins.
@@ -233,19 +249,33 @@ class Stage:
             self.run_teardown()
 
 
-def stage(*plugins, components=None, loop=None, signals: t.Type[Signals] = None):
+def stage(
+    *plugins,
+    components=None,
+    loop=None,
+    signals: t.Type[Signals] | None = None,
+    cancel_timeout: float = 60.0,
+):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    stage = Stage(components=components, loop=loop, signals=signals)
+    stage = Stage(
+        components=components, loop=loop, signals=signals, cancel_timeout=cancel_timeout
+    )
     return stage.run(*plugins)
 
 
-async def run(tasks, *, evt_cancel=None):
+async def run(tasks, *, evt_cancel=None, cancel_timeout: float = 60.0):
     if evt_cancel is None:
         evt_cancel = context.add(Cancel())
 
-    fut_tasks = asyncio.gather(*map(asyncio.create_task, tasks))
+    unshielded_tasks = list(map(asyncio.create_task, tasks))
+
+    fut_tasks = asyncio.gather(
+        # *unshielded_tasks,
+        *map(asyncio.shield, unshielded_tasks),
+        return_exceptions=True,
+    )
 
     # stop staging if we finish in any way
     fut_tasks.add_done_callback(lambda _: evt_cancel.set())
@@ -253,16 +283,26 @@ async def run(tasks, *, evt_cancel=None):
     # wait for exit
     await evt_cancel.wait()
 
-    if not fut_tasks.done():
-        # we were explicitelly stopped by cancel event
-        fut_tasks.cancel()
-        try:
-            await fut_tasks
-        except asyncio.CancelledError:
-            # silence our shutdown
-            pass
-    else:
-        return fut_tasks.result()
+    # INFO: we wait for shutdown of tasks
+    try:
+        return await asyncio.wait_for(fut_tasks, cancel_timeout)
+    except TimeoutError:
+        # INFO: find the ungraceful tasks and cancel them
+        ungraceful_tasks = [task for task in unshielded_tasks if not task.done()]
+        sl.warn("Cancelling ungraceful tasks", tasks=ungraceful_tasks)
+        for task in ungraceful_tasks:
+            task.cancel()
+            await task
+    finally:
+        results = []
+        for task in unshielded_tasks:
+            try:
+                results.append(task.result())
+            except asyncio.CancelledError as ex:
+                results.append(ex)
+            except Exception as ex:
+                results.append(ex)
+        return results
 
 
 def collect_plugin_args(plugin):

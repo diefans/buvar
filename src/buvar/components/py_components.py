@@ -10,6 +10,7 @@ must have:
 nice to have:
 - adaption resp. dependency injection of components
 """
+
 import itertools
 import typing as t
 

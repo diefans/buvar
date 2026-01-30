@@ -32,10 +32,10 @@ def test_run_load_twice():
 
     loaded = {}
 
-    async def test_plugin(include: plugin.Loader):
+    async def test_plugin(load: plugin.Loader):
         assert not loaded
         loaded[True] = True
-        await include(test_plugin)
+        await load(test_plugin)
 
     plugin.stage(test_plugin)
 
@@ -77,28 +77,6 @@ def test_plugin_error():
     assert state == {"teardown_task": True}
 
 
-def test_cancel_staging():
-    import asyncio
-
-    from buvar import plugin
-
-    state = {}
-
-    async def server_plugin(cancel: plugin.Cancel):
-        async def server():
-            # shutdown
-            cancel.set()
-            try:
-                await asyncio.Future()
-            except asyncio.CancelledError:
-                state["cancelled"] = True
-
-        yield server()
-
-    plugin.stage(server_plugin)
-    assert state == {"cancelled": True}
-
-
 def test_resolve_plugin_not_async():
     from buvar import plugin
 
@@ -129,37 +107,151 @@ def test_subtask():
     assert state == {"plugin": True, "task": True, "teardown_task": True}
 
 
-def test_broken_task():
+def test_staging_result_ok():
+    from buvar import plugin
+
+    async def foo():
+        async def foo_task():
+            return "foo"
+
+        return foo_task()
+
+    async def bar():
+        async def bar_task():
+            return "bar"
+
+        yield bar_task()
+
+    result = plugin.stage(
+        foo,
+        bar,
+        cancel_timeout=0.1,
+    )
+    assert result == ["foo", "bar"]
+
+
+def test_cancel_staging():
     import asyncio
 
     from buvar import plugin
 
-    state = {}
+    async def cancel_task_plugin(cancel: plugin.Cancel):
+        async def cancel_task():
+            await asyncio.sleep(0)
+            # shutdown
+            cancel.set()
+            return "cancel"
 
-    async def broken_plugin(teardown: plugin.Teardown):
+        yield cancel_task()
+
+    async def graceful_server_plugin(cancel: plugin.Cancel):
+        async def server():
+            await cancel.wait()
+            return "graceful_server"
+
+        yield server()
+
+    async def ungraceful_server_plugin():
+        async def server():
+            await asyncio.sleep(0)
+            try:
+                # INFO: wait for something
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                return "ungraceful_server"
+
+        yield server()
+
+    result = plugin.stage(
+        cancel_task_plugin,
+        graceful_server_plugin,
+        ungraceful_server_plugin,
+        cancel_timeout=0.1,
+    )
+    assert result == ["cancel", "graceful_server", "ungraceful_server"]
+
+
+def test_cancelled_task(Something):
+    import asyncio
+
+    from buvar import plugin
+
+    async def broken_plugin(cancel: plugin.Cancel):
         fut_task = asyncio.Future()
+
+        async def cancel_task():
+            await asyncio.sleep(0)
+            # shutdown
+            cancel.set()
+            return "cancel"
 
         async def task():
             await fut_task
 
-        async def teardown_task():
-            state["teardown_task"] = True
-            fut_task.cancel()
+        yield cancel_task()
+        yield task()
 
-            try:
-                await fut_task
-            except asyncio.CancelledError:
-                ...
+    result = plugin.stage(broken_plugin, cancel_timeout=0.1)
+    assert result == [
+        "cancel",
+        Something(lambda x: isinstance(x, asyncio.CancelledError)),
+    ]
 
-        teardown.add(teardown_task())
+
+def test_broken_task_with_cancel(Something):
+    import asyncio
+
+    from buvar import plugin
+
+    class MyException(Exception): ...
+
+    async def broken_plugin(cancel: plugin.Cancel):
+        async def cancel_task():
+            await asyncio.sleep(0)
+            # shutdown
+            cancel.set()
+            return "cancel"
 
         async def broken_task():
-            raise Exception("Task is broken")
+            raise MyException("Task is broken")
 
-        yield task()
+        yield cancel_task()
         yield broken_task()
 
-    with pytest.raises(Exception) as e:
-        plugin.stage(broken_plugin)
-        assert e.error.args == ("Task is broken",)
-    assert state == {"teardown_task": True}
+    result = plugin.stage(broken_plugin, cancel_timeout=0.1)
+    assert result == ["cancel", Something(lambda x: isinstance(x, MyException))]
+
+
+def test_signal_cancel(Something):
+    import asyncio
+    import os
+    import signal
+
+    from buvar import plugin
+
+    pid = os.getpid()
+
+    class Signals(plugin.Signals):
+        def handle_usr1(self):
+            self.stage.cancel.set()
+
+    async def myplugin(cancel: plugin.Cancel):
+        fut_task = asyncio.Future()
+
+        async def cancel_task():
+            await asyncio.sleep(0)
+            # shutdown
+            os.kill(pid, signal.SIGUSR1)
+            return "cancel"
+
+        async def task():
+            await fut_task
+
+        yield cancel_task()
+        yield task()
+
+    result = plugin.stage(myplugin, cancel_timeout=0.1, signals=Signals)
+    assert result == [
+        "cancel",
+        Something(lambda x: isinstance(x, asyncio.CancelledError)),
+    ]

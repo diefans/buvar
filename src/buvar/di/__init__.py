@@ -251,8 +251,11 @@ class CallableAdapter(Adapter, inspect.Signature):
         inspect.Signature.__init__(
             self,
             list(signature.parameters.values()),
-            return_annotation=signature.return_annotation,
+            return_annotation=self.get_return_type(signature),
         )
+
+    def get_return_type(self, signature: inspect.Signature):
+        return signature.return_annotation
 
     def __hash__(self):
         # INFO:we hash the signature and the implementation, because signature
@@ -314,6 +317,11 @@ class ClassmethodAdapter(MethodAdapter):
         if not inspect.isclass(implementation.__self__):
             raise AdapterError("Implementation is not a classmethod", implementation)
         self.cls = implementation.__self__
+
+    def get_return_type(self, signature: inspect.Signature):
+        if signature.return_annotation is t.Self:
+            return self.implementation.__self__
+        return super().get_return_type(signature)
 
     @classmethod
     def lookup(cls, registry: t.Dict, tp):

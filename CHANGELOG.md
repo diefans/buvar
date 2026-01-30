@@ -1,3 +1,9 @@
+## 0.44.13 (2026-01-30)
+
+### Fix
+
+- **shutdown**: wait for shutdown gracefully (#36)
+
 ## 0.44.12 (2025-10-20)
 
 ### Fix

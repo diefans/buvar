@@ -4,7 +4,7 @@ requires = ["setuptools", "cython"]
 [project]
 name = "buvar"
 requires-python = ">= 3.11"
-version = "0.44.16"
+version = "0.44.17"
 description = "Asyncio plugins, components, dependency injection and configs"
 readme = "README.rst"
 dependencies = [
@@ -57,7 +57,7 @@ ext-modules = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.44.16"
+version = "0.44.17"
 tag_format = "$version"
 bump_message = "release: $current_version → $new_version [skip-ci]"
 

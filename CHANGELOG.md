@@ -1,3 +1,9 @@
+## 0.44.17 (2026-02-12)
+
+### Fix
+
+- **CI**: try other mac matrix in packaging (#43)
+
 ## 0.44.16 (2026-01-30)
 
 ### Fix

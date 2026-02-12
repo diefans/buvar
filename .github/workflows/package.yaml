@@ -49,7 +49,7 @@ jobs:
     strategy:
       matrix:
         # INFO: https://github.com/pypa/gh-action-pypi-publish/issues/215
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-14]
     # strategy:
     #   fail-fast: false
     #   matrix:

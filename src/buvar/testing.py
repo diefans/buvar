@@ -57,7 +57,13 @@ def buvar_stage(buvar_context, buvar_stage_loop):
     # pytest-asyncio would otherwise use another loop for the specific test
     from buvar import plugin
 
-    stage = plugin.Stage(components=buvar_context)
+    # Restore ability to cancel whole test suite
+    class SignalsAllowingInterrupt(plugin.Signals):
+        def handle_int(self):
+            super().handle_int()
+            raise KeyboardInterrupt
+
+    stage = plugin.Stage(components=buvar_context, signals=SignalsAllowingInterrupt)
     return stage
 
 

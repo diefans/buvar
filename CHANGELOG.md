@@ -1,3 +1,9 @@
+## 0.44.18 (2026-05-07)
+
+### Fix
+
+- **testing**: stop swallowing SIGINT in tests (#46)
+
 ## 0.44.17 (2026-02-12)
 
 ### Fix

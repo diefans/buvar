@@ -1,3 +1,9 @@
+## 0.44.19 (2026-09-23)
+
+### Fix
+
+- **plugin**: support Python 3.14 and recent pytest
+
 ## 0.44.18 (2026-05-07)
 
 ### Fix

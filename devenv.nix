@@ -6,15 +6,26 @@
   ...
 }:
 let
-  pkgs-unstable = import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
+  # pkgs-unstable = import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
+  # INFO: we take only major.minor, since devenv versions are a bit behind
+  python_version = lib.versions.majorMinor (
+    builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./.python-version)
+  );
+
 in
 {
-  packages = with pkgs-unstable; [
+  cachix.enable = true;
+  # cachix.pull = [
+  #   "cachix"
+  #   "pre-commit-hooks"
+  #   "nixpkgs-python"
+  # ];
+
+  packages = with pkgs; [
     git
   ];
 
   enterShell = ''
-    uv sync --dev
     git status
   '';
 
@@ -22,22 +33,19 @@ in
   enterTest = ''
     echo "Running tests"
   '';
-
-  # https://devenv.sh/services/
-  # services.postgres.enable = true;
-
-  # https://devenv.sh/languages/
   languages.python = {
     enable = true;
-    version = "3.13";
+    version = python_version;
     uv = {
       enable = true;
       sync.enable = true;
-      # FIXME: this is not working as expected
-      # sync.extras = [ "dev" ];
+      sync.groups = [ "dev" ];
     };
     venv = {
       enable = true;
     };
+    libraries = [
+    ];
   };
+
 }

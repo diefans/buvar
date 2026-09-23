@@ -4,6 +4,8 @@ Búvár
 This is heavily inspired by `Pyramid`_ and my daily needs to fastly create and
 maintain microservice like applications.
 
+Requires Python 3.14 or newer.
+
 
 a plugin mechanic
 -----------------

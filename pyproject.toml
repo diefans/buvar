@@ -3,7 +3,7 @@ requires = ["setuptools", "cython"]
 
 [project]
 name = "buvar"
-requires-python = ">= 3.11"
+requires-python = ">= 3.14"
 version = "0.44.18"
 description = "Asyncio plugins, components, dependency injection and configs"
 readme = "README.rst"
@@ -25,9 +25,9 @@ dev = [
     "commitizen",
     "pre-commit",
     "pdbpp",
-    "pytest>=4.6",
+    "pytest>=9",
     "pytest-cov>=2.7",
-    "pytest-asyncio>=1.0.0",
+    "pytest-asyncio>=1.4",
     "pytest-benchmark>=3.2.2",
     "mock>=3.0",
     "pytest-mock>=1.10",
@@ -40,7 +40,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py314"
 lint.extend-select = [
     "I",     # sorting
     "UP035", # deprected imports (such as typing.List)

@@ -97,18 +97,19 @@ def buvar_load(request, buvar_stage):
 
 @pytest.fixture
 def buvar_plugin_context(buvar_stage, buvar_load):
-    """The shared context while plugins are prepared."""
-    return buvar_stage.context
+    """The shared context while plugins are prepared.
 
+    The global buvar context is installed during fixture setup so that the
+    contextvars context captured by pytest-asyncio when it runs the test
+    coroutine already contains the plugin context.
+    """
+    from buvar import context as buvar_context_module
 
-@pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_pyfunc_call(pyfuncitem):
-    """Wrap marked tests in buvar plugin context."""
-    if PLUGINS_MARK in pyfuncitem.keywords:
-        plugin_context = pyfuncitem.funcargs[buvar_plugin_context.__name__]
-        pyfuncitem.obj = wrap_in_buvar_plugin_context(plugin_context, pyfuncitem.obj)
-
-    yield
+    token = buvar_context_module.buvar_context.set(buvar_stage.context)
+    try:
+        yield buvar_stage.context
+    finally:
+        buvar_context_module.buvar_context.reset(token)
 
 
 def wrap_in_buvar_plugin_context(context, func):

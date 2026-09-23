@@ -192,7 +192,11 @@ def test_di_nject(benchmark, adapters):
         assert bum == {"bum": True}
 
     def bench():
-        asyncio.get_event_loop().run_until_complete(test())
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(test())
+        finally:
+            loop.close()
 
     benchmark(bench)
 
@@ -227,7 +231,11 @@ def test_nject_2(benchmark, adapters):
         assert foo.bar is bar
 
     def bench():
-        asyncio.get_event_loop().run_until_complete(test())
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(test())
+        finally:
+            loop.close()
 
     benchmark(bench)
 

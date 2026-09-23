@@ -59,7 +59,9 @@ class StackingTaskFactory:
     @classmethod
     def set(cls, *, loop=None):
         if loop is None:
-            loop = asyncio.get_event_loop()
+            from .plugin import get_or_create_event_loop
+
+            loop = get_or_create_event_loop()
 
         factory = cls(parent_factory=loop.get_task_factory())
         loop.set_task_factory(factory)
@@ -68,7 +70,9 @@ class StackingTaskFactory:
 
     def reset(self, *, loop=None):
         if loop is None:
-            loop = asyncio.get_event_loop()
+            from .plugin import get_or_create_event_loop
+
+            loop = get_or_create_event_loop()
 
         loop.set_task_factory(self.parent_factory)
 

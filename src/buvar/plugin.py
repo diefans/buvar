@@ -43,6 +43,20 @@ from . import context, util
 PLUGIN_FUNCTION_NAME = "prepare"
 
 
+def get_or_create_event_loop():
+    """Return the current event loop, creating one if necessary.
+
+    Python 3.14 removed the implicit event loop creation from
+    :func:`asyncio.get_event_loop`.
+    """
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
 sl = structlog.get_logger()
 
 
@@ -176,7 +190,7 @@ class Stage:
         cancel_timeout: float = 60.0,
     ):
         self.cancel_timeout = cancel_timeout
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_or_create_event_loop()
         self.context = (
             context.current_context()
             .push(*(components.stack if components else ()))
@@ -250,7 +264,7 @@ def stage(
     cancel_timeout: float = 60.0,
 ):
     if loop is None:
-        loop = asyncio.get_event_loop()
+        loop = get_or_create_event_loop()
 
     stage = Stage(
         components=components, loop=loop, signals=signals, cancel_timeout=cancel_timeout

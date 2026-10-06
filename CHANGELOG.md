@@ -1,3 +1,9 @@
+## 0.44.20 (2026-10-06)
+
+### Fix
+
+- **di**: support PEP 695 `type X = ...` aliases in type matrix (#51)
+
 ## 0.44.19 (2026-09-23)
 
 ### Fix

@@ -77,6 +77,9 @@ method, a class, a classmethod or a generic classmthod.
 
 Dependencies are looked up in components or may be provided via kwargs.
 
+Return type annotations may be classes, generic aliases (``list[Foo]``,
+``dict[str, Foo]``) or PEP 695 ``type X = ...`` aliases.
+
 
 .. code-block:: python
 

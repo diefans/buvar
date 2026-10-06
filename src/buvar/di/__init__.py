@@ -217,6 +217,11 @@ class BaseMatrix:
             return self.iter_generic(tp)
         if ti.is_generic_type(tp):
             return self.iter_generic(tp)
+        if isinstance(tp, t.TypeAliasType):
+            # INFO: PEP 695 `type X = ...` aliases (typing.TypeAliasType)
+            # are not equal to their unwrapped value once nested inside a
+            # generic, so register and look them up as an atomic leaf.
+            return iter((tp,))
 
     def iter_mro(self, tp):
         mro = inspect.getmro(tp)

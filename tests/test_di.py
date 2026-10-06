@@ -297,3 +297,18 @@ async def test_resolve_error(adapters):
 
     with pytest.raises(di.ResolveError):
         await adapters.nject(Foo)
+
+
+async def test_nject_pep695_type_alias(adapters):
+    from typing import Any
+
+    type ApiConfig = Any
+    ApiConfigs = dict[str, dict[str, ApiConfig]]
+
+    async def adapt_api_configs() -> ApiConfigs:
+        return {"provider": {"flavor": {"userinfo_url": "/u"}}}
+
+    adapters.register(adapt_api_configs)
+
+    api_configs = await adapters.nject(ApiConfigs)
+    assert api_configs == {"provider": {"flavor": {"userinfo_url": "/u"}}}
